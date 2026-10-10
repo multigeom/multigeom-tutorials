@@ -1,0 +1,32 @@
+# Python environment to run the tests of the notebooks on a CPU (GitHub Actions).
+#
+# From the root of this repository:
+#
+# ```bash
+# conda env create -f environment-ci.yml --prefix ./env-ci   # (1 min)
+# conda activate ./env-ci
+# pip install "multigeom[all]"                               # the package (see README.md)
+# pytest
+# ```
+
+name: multigeom-tutorials-ci
+channels:
+    - conda-forge
+dependencies:
+    - python=3.11
+    - numpy
+    - scipy
+    - h5py
+    - pillow
+    - pyyaml
+    - tqdm
+    - pytest
+    - pip
+    - pip:
+        - --extra-index-url https://download.pytorch.org/whl/cpu
+        - torch==2.7.0+cpu           # CPU-only wheel (no CUDA libraries, much smaller)
+        - torchvision==0.22.0+cpu    # must match the torch build above
+        - diffusers==0.37.1
+        - huggingface_hub==0.36.0
+        - plenoptic==1.3.1
+        - matplotlib==3.11.2         # pinned: the figure tests compare rendered pictures

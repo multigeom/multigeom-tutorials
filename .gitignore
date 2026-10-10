@@ -1,0 +1,20 @@
+# Data and run outputs (see README.md): too large for git
+data/*
+!data/README.md
+runs
+env/
+env-ci/
+*.pt
+*.pth
+*.ckpt
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Jupyter and editors
+.ipynb_checkpoints/
+.vscode/
+.idea/
+.DS_Store
