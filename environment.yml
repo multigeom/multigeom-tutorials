@@ -1,17 +1,18 @@
 # Python environment to run the tutorial notebooks on a GPU.
 #
+# author: laquitainesteeve@gmail.com
+#
 # Tested on: conda 25.5.1, driver-supported CUDA 12.8 (nvidia-smi), NVIDIA RTX 5090 GPU.
 #
-# From the root of this repository:
+# From the repository root:
 #
 # ```bash
-# conda env create -f environment.yml --prefix ./env      # (1 min)
-# conda activate ./env
-# pip install "multigeom[all]"                            # the package (see README.md)
-# python -m ipykernel install --user --name multigeom --display-name "multigeom"
+# conda env create -f environment.yml -n tutorials-env      # (1 min)
+# conda activate tutorials-env
+# python -m ipykernel install --user --name tutorials-env --display-name "tutorials-env"
 # ```
 
-name: multigeom-tutorials
+name: tutorials-env
 channels:
     - conda-forge
 dependencies:
