@@ -1,5 +1,7 @@
 # multigeom-tutorials
 
+**Landing page: <https://multigeom.github.io>**
+
 Tutorial notebooks for [`multigeom`](https://github.com/sazio/MultiscaleInformationGeometry), the Python package that
 estimates the multi-scale Fisher information geometry of neural population codes with conditional diffusion models
 (paper: *A multi-scale information geometry reveals the structure of mutual information in neural populations*).
