@@ -2,7 +2,7 @@
 
 **Landing page: <https://multigeom.github.io>**
 
-Tutorial notebooks for [`multigeom`](https://github.com/sazio/MultiscaleInformationGeometry), the Python package that
+Tutorial notebooks for [`multigeom`](https://github.com/multigeom/multigeom), the Python package that
 estimates the multi-scale Fisher information geometry of neural population codes with conditional diffusion models
 (paper: *A multi-scale information geometry reveals the structure of mutual information in neural populations*).
 
@@ -48,8 +48,8 @@ Python 3.11. The notebooks need a GPU, except notebooks 0 and 4. Run these comma
    PyPI, install it from a clone instead:
 
    ```bash
-   git clone https://github.com/sazio/MultiscaleInformationGeometry.git ../MultiscaleInformationGeometry
-   pip install -e "../MultiscaleInformationGeometry[all]"
+   git clone https://github.com/multigeom/multigeom.git ../multigeom
+   pip install -e "../multigeom[all]"
    ```
 
 3. **Create the Jupyter kernel** and open the notebooks with it.
