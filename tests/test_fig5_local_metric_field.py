@@ -1,5 +1,5 @@
 """
-Integration test: do we reproduce the plot of notebooks/3_local_metric_field.ipynb (paper Fig. 5, the local
+Integration test: do we reproduce the plot of notebooks/5_local_metric_field.ipynb (paper Fig. 5, the local
 metric field projected onto the leading eigenvectors of G(x))?
 
 The reference is stored in tests/fixtures/fig5/ (regenerate with

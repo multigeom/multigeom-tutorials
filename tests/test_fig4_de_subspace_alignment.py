@@ -1,5 +1,5 @@
 """
-Integration test: do we reproduce the plot of notebooks/2_subspace_alignment.ipynb (paper Fig. 4D-E,
+Integration test: do we reproduce the plot of notebooks/4_subspace_alignment.ipynb (paper Fig. 4D-E,
 subspace alignment of the top-k eigenvectors of G(x) and J(x) across encoders and areas)?
 
 The reference is stored in tests/fixtures/fig4_de/ (regenerate with

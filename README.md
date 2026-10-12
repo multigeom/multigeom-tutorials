@@ -13,20 +13,29 @@ large and unreadable in diffs, do not clutter the package history.
 
 ## Notebooks
 
+**Getting started** (the basic blocks of the package):
+
 | Notebook | What it does | Needs | Time |
 |---|---|---|---|
-| `0_bring_your_own_encoder` | Checks that your own PyTorch model meets the encoder contract and computes its Fisher metric J(x). | the package only, CPU | seconds |
-| `1_leading_eigenvectors_of_G` | Leading eigenvectors of G(x) and J(x) for an example image (paper Fig. 3D-F, 4B-C). | data, checkpoints, GPU | about 2 min |
-| `2_subspace_alignment` | G(x) and J(x) for many images, split over local GPUs or Modal, then the subspace alignment (Fig. 4D-E). | data, checkpoints, GPU | 1 min to hours |
-| `3_local_metric_field` | Local metric field around a reference image (Fig. 5). | data, checkpoints, GPU | about 25 min |
-| `4_bures_wasserstein` | Bures-Wasserstein distance between geometries (Fig. 6). | the outputs of notebook 2 | minutes, CPU |
+| `0_getting_started_use_a_builtin_encoder` | Load an encoder of the paper (fitted to macaque V1 or V4), look inside, predict neural responses, compute its Fisher metric J(x). | the package, internet, CPU | about 1 min |
+| `1_getting_started_synthetic_neural_data` | Build an encoder from scratch on synthetic neural data with a known ground truth: backbone, readout, `fit_readout`, `save`, `load`, `predict`. | TinyImageNet | about 1 min on a GPU |
+| `2_getting_started_diffusion_and_g` | Train the diffusion model of that encoder and compute the multi-scale metric G(x) next to J(x). | TinyImageNet | about 2 min on a GPU |
 
-Start with notebook 0: it runs anywhere. Notebooks 1 to 4 reproduce the paper's analyses and need the data and checkpoints
-below.
+**Reproduce the paper**:
+
+| Notebook | What it does | Needs | Time |
+|---|---|---|---|
+| `3_leading_eigenvectors_of_G` | Leading eigenvectors of G(x) and J(x) for an example image (paper Fig. 3D-F, 4B-C). | data, checkpoints, GPU | about 2 min |
+| `4_subspace_alignment` | G(x) and J(x) for many images, split over local GPUs or Modal, then the subspace alignment (Fig. 4D-E). | data, checkpoints, GPU | 1 min to hours |
+| `5_local_metric_field` | Local metric field around a reference image (Fig. 5). | data, checkpoints, GPU | about 25 min |
+| `6_bures_wasserstein` | Bures-Wasserstein distance between geometries (Fig. 6). | the outputs of notebook 4 | minutes, CPU |
+
+Start with notebook 0. Notebooks 1 and 2 need only TinyImageNet. Notebooks 3 to 6 reproduce the paper's analyses and need all the
+data and checkpoints below.
 
 ## Installation
 
-Python 3.11. The notebooks need a GPU, except notebooks 0 and 4. Run these commands from the root of this repository.
+Python 3.11. A GPU is recommended (notebooks 1 and 2 also run on a CPU, more slowly); notebooks 0 and 6 do not need one. Run these commands from the root of this repository.
 
 1. **Create the environment** with conda. `environment.yml` pins PyTorch 2.7 for CUDA 12.8; edit the `--extra-index-url`
    and the torch lines for another CUDA version.
@@ -68,12 +77,12 @@ Python 3.11. The notebooks need a GPU, except notebooks 0 and 4. Run these comma
 Every notebook finds the repository root (the folder with `environment.yml`) and works from there, so `data/` and `runs/`
 are read from this folder whatever the notebook's own location.
 
-## Data and checkpoints (notebooks 1 to 4)
+## Data and checkpoints (notebooks 1 to 6)
 
-Notebook 0 needs neither. The other notebooks read:
+Notebook 0 needs neither. Notebooks 1 and 2 need TinyImageNet only. The others read:
 
 - `data/`: TVSD, THINGS images and TinyImageNet; `data/README.md` describes each and the expected layout. The scripts `notebooks/download_tsvd_data.sh`,
-  `notebooks/download_things_images.sh` and `notebooks/download_tiny_imagenet.sh` fetch them; notebook 1 describes the layout.
+  `notebooks/download_things_images.sh` and `notebooks/download_tiny_imagenet.sh` fetch them; notebook 3 describes the layout.
   Set `NEURIPS_DATA_DIR=/path/to/storage` to read the datasets from elsewhere.
 - `runs/`: the trained encoders and diffusion models.
 

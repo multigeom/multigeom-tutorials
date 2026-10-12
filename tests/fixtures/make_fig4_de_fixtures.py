@@ -1,5 +1,5 @@
 """
-Regenerate the Fig. 4D-E fixtures of notebooks/2_subspace_alignment.ipynb from the per-image files in runs/:
+Regenerate the Fig. 4D-E fixtures of notebooks/4_subspace_alignment.ipynb from the per-image files in runs/:
 
     tests/fixtures/fig4_de/cross_encoder_metrics.json   Stage 5 on those files (without provenance)
     tests/fixtures/fig4_de/fig4_de_reference.png        the notebook plot rendered from it

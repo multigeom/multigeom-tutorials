@@ -1,11 +1,11 @@
-"""Helpers to run cells of the tutorial notebooks inside the tests (notebook 1 by default, notebook 3 for Fig. 5)."""
+"""Helpers to run cells of the tutorial notebooks inside the tests (notebook 3 by default, notebook 5 for Fig. 5, notebook 6 for Fig. 6)."""
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-NOTEBOOK = REPO / "notebooks" / "1_leading_eigenvectors_of_G.ipynb"
+NOTEBOOK = REPO / "notebooks" / "3_leading_eigenvectors_of_G.ipynb"
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "fig3"
 
 # A unique line of each notebook code cell used by the tests. The plot cells rely on the
@@ -23,16 +23,16 @@ N_FIG4_REF = 4      # ... of the reference encoder (inception) for Fig. 4B-C
 N_FIG4_POOL = 30    # ... of the other encoders: the notebook searches their first 30 for the best match
 
 
-NOTEBOOK3 = REPO / "notebooks" / "3_local_metric_field.ipynb"
-# Lines of the code cells of notebook 3 (parameters, launch, wait, plot).
+NOTEBOOK3 = REPO / "notebooks" / "5_local_metric_field.ipynb"
+# Lines of the code cells of notebook 5 (parameters, launch, wait, plot).
 SETUP3 = "from multigeom.pipeline import metric_field_job as lmf"
 LAUNCH3 = "lmf.launch(job)"
 WAIT3 = "lmf.wait(job"
 PLOT3 = "lmf.plot_metric_field(job)"
 
 
-NOTEBOOK4 = REPO / "notebooks" / "4_bures_wasserstein.ipynb"
-# Lines of the code cells of notebook 4 (setup, Stage 5, ordering check, plot).
+NOTEBOOK4 = REPO / "notebooks" / "6_bures_wasserstein.ipynb"
+# Lines of the code cells of notebook 6 (setup, Stage 5, ordering check, plot).
 SETUP4 = "from multigeom.pipeline import alignment as bw"
 COMPUTE4 = "bw.compute_metrics(RUNS_DIR"
 ORDER4 = "bw.print_ordering(metrics)"
@@ -178,3 +178,26 @@ def fig5_records(path: Path | None = None) -> dict:
                 "x0": torch.from_numpy(data["x0"]).reshape(1, 1, 64, 64),
             }
     return records
+
+
+def run_all_code_cells(namespace: dict, notebook: Path, overrides: dict | None = None) -> dict:
+    """
+    Run every code cell of `notebook`, in order, in `namespace` (with `overrides` as in `run_cells`). IPython magics are
+    dropped: `%%time` lines, and `%pip install` lines (which are only reached on Google Colab).
+    """
+    nb = json.loads(notebook.read_text())
+    for i, cell in enumerate(nb["cells"]):
+        if cell["cell_type"] != "code":
+            continue
+        lines = []
+        for line in "".join(cell["source"]).splitlines():
+            if line.lstrip().startswith("%%"):
+                continue
+            if line.lstrip().startswith("%pip"):
+                line = line[: len(line) - len(line.lstrip())] + "pass"
+            lines.append(line)
+        source = "\n".join(lines)
+        for name, value in (overrides or {}).items():
+            source = override_assignment(source, name, value)
+        exec(compile(source, f"<{notebook.name} cell {i}>", "exec"), namespace)
+    return namespace
