@@ -18,6 +18,7 @@ dependencies:
     - scipy
     - h5py
     - pillow
+    - scikit-image                   # the example photos of notebook 0
     - pyyaml
     - tqdm
     - pytest

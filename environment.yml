@@ -22,6 +22,7 @@ dependencies:
     - matplotlib                     # plotting
     - h5py                           # TVSD .mat (v7.3) loading
     - pillow
+    - scikit-image                   # the example photos of notebook 0
     - pyyaml
     - tqdm
     - ipykernel                      # the jupyter kernel
