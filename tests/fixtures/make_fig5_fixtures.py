@@ -1,5 +1,5 @@
 """
-Regenerate the Fig. 5 fixtures of notebooks/3_local_metric_field.ipynb from Stage-6 results in runs/:
+Regenerate the Fig. 5 fixtures of notebooks/5_local_metric_field.ipynb from Stage-6 results in runs/:
 
     tests/fixtures/fig5/metric_field.npz         what the drawing needs: grid coefficients, reference image x0,
                                                              and the projected 2x2 matrices of every (metric, area, encoder)

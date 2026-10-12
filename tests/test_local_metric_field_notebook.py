@@ -1,5 +1,5 @@
 """
-Integration tests of notebooks/3_local_metric_field.ipynb (paper Fig. 5): they run the notebook's own cells.
+Integration tests of notebooks/5_local_metric_field.ipynb (paper Fig. 5): they run the notebook's own cells.
 
   - CPU, run in CI: the parameter cell gives the documented job (reference image 64, 5 x 5 grid, G with 0.5 sqrt(lambda), J
     with a fixed 0.3 step) and prints its cost; the plot cell, run on the stored Stage-6 fields of

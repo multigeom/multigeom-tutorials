@@ -1,5 +1,5 @@
 """
-Regenerate the Fig. 6 fixtures of notebooks/4_bures_wasserstein.ipynb:
+Regenerate the Fig. 6 fixtures of notebooks/6_bures_wasserstein.ipynb:
 
     tests/fixtures/fig6/fig6_reference.png    the notebook plot (Bures-Wasserstein distance against k)
     tests/fixtures/fig6/fixture_info.json     how it was made: the Stage-5 file it is drawn from (name and md5), the

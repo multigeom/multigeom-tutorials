@@ -1,6 +1,6 @@
 """
 Integration tests, inception encoder: do we reproduce the notebook's Fig. 3D-F
-(notebooks/1_leading_eigenvectors_of_G.ipynb, section 6: the frog image with the V1/V4 receptive fields, and the
+(notebooks/3_leading_eigenvectors_of_G.ipynb, section 6: the frog image with the V1/V4 receptive fields, and the
 leading eigenvectors of G(x) and J(x) for V1 and V4)?
 
 The reference is stored in tests/fixtures/fig3/ (regenerate with

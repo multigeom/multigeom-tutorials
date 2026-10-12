@@ -1,5 +1,5 @@
 """
-Integration tests of notebooks/4_bures_wasserstein.ipynb (paper Fig. 6, the Bures-Wasserstein distance between geometries):
+Integration tests of notebooks/6_bures_wasserstein.ipynb (paper Fig. 6, the Bures-Wasserstein distance between geometries):
 they run the notebook's own cells.
 
 The reference is stored in tests/fixtures/fig6/ (regenerate with
@@ -9,7 +9,7 @@ configurations).
 
   - CPU, run in CI: the fixture agrees with its source file and with the repository's settings; the notebook's ordering cell
     reports the paper's order (G: cross-model below cross-area, J: reversed); the plot cell draws the reference picture.
-  - slow, needs the per-image files of notebook 2 (skipped without them, so not on GitHub): the notebook's setup, Stage-5,
+  - slow, needs the per-image files of notebook 4 (skipped without them, so not on GitHub): the notebook's setup, Stage-5,
     ordering and plot cells run end to end in a scratch copy of the repository, so nothing in runs/ is touched.
 """
 from __future__ import annotations
@@ -117,7 +117,7 @@ def _have_per_image() -> bool:
 
 
 @pytest.mark.slow
-@pytest.mark.skipif(not _have_per_image(), reason="needs runs/per_image of the four configurations (tutorial 2)")
+@pytest.mark.skipif(not _have_per_image(), reason="needs runs/per_image of the four configurations (notebook 4)")
 def test_notebook_runs_stage5_and_plots_in_a_scratch_copy(at_repo_root, tmp_path, monkeypatch):
     scratch = tmp_path / "repo"
     (scratch / "runs").mkdir(parents=True)
