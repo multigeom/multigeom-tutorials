@@ -53,7 +53,7 @@ Python 3.11. A GPU is recommended (notebooks 1 and 2 also run on a CPU, more slo
    pip install "multigeom[all]"
    ```
 
-   The `all` extra adds the reference encoders, the fitting code, the figures and Modal. Until `multigeom` is released on
+   The `all` extra adds what reproducing the paper needs (the ON-OFF encoder and the TVSD loaders), Jupyter and Modal. Until `multigeom` is released on
    PyPI, install it from a clone instead:
 
    ```bash
