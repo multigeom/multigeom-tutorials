@@ -1,0 +1,31 @@
+name: tests
+
+# Run the tests of the notebooks (CPU, no data or checkpoints needed) on every pull request and on every push to develop or
+# master. The package is installed from GitHub: from its develop branch when this repository's develop is tested, from its
+# main branch otherwise.
+on:
+  pull_request:
+  push:
+    branches: [master, develop]
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PACKAGE_REF: ${{ github.ref_name == 'develop' && 'develop' || 'main' }}
+      USE_TF: "0"
+      USE_FLAX: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install multigeom (CPU PyTorch) and the test tools
+        run: |
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+            "multigeom[paper] @ git+https://github.com/multigeom/multigeom.git@${PACKAGE_REF}" pytest scikit-image
+      - name: Tests of the notebooks
+        run: pytest -q --tb=line -m "not slow and not gpu and not pretrained"
