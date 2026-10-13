@@ -180,10 +180,11 @@ def fig5_records(path: Path | None = None) -> dict:
     return records
 
 
-def run_all_code_cells(namespace: dict, notebook: Path, overrides: dict | None = None) -> dict:
+def run_all_code_cells(namespace: dict, notebook: Path, overrides: dict | None = None, replacements: dict | None = None) -> dict:
     """
-    Run every code cell of `notebook`, in order, in `namespace` (with `overrides` as in `run_cells`). IPython magics are
-    dropped: `%%time` lines, and `%pip install` lines (which are only reached on Google Colab).
+    Run every code cell of `notebook`, in order, in `namespace` (with `overrides` as in `run_cells`). `replacements` maps text
+    to replace by other text in every cell (for settings that are not a plain `NAME = value` line, such as tuple
+    assignments). IPython magics are dropped: `%%time` lines, and `%pip install` lines (which are only reached on Google Colab).
     """
     nb = json.loads(notebook.read_text())
     for i, cell in enumerate(nb["cells"]):
@@ -197,6 +198,8 @@ def run_all_code_cells(namespace: dict, notebook: Path, overrides: dict | None =
                 line = line[: len(line) - len(line.lstrip())] + "pass"
             lines.append(line)
         source = "\n".join(lines)
+        for old, new in (replacements or {}).items():
+            source = source.replace(old, new)
         for name, value in (overrides or {}).items():
             source = override_assignment(source, name, value)
         exec(compile(source, f"<{notebook.name} cell {i}>", "exec"), namespace)
