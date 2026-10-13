@@ -1,11 +1,11 @@
 name: pr-source
 
-# A pull request into master is only allowed from the develop branch of this repository. GitHub cannot restrict the source branch
+# A pull request into main is only allowed from the develop branch of this repository. GitHub cannot restrict the source branch
 # of a pull request by itself, so this check fails for any other source. Make it a required status check in the branch
-# protection (or ruleset) of master: check name "only-from-develop".
+# protection (or ruleset) of main: check name "only-from-develop".
 on:
   pull_request:
-    branches: [master]
+    branches: [main]
 
 jobs:
   only-from-develop:
@@ -18,7 +18,7 @@ jobs:
           THIS_REPO: ${{ github.repository }}
         run: |
           if [ "$HEAD_BRANCH" != "develop" ] || [ "$HEAD_REPO" != "$THIS_REPO" ]; then
-            echo "::error::Pull requests into master must come from develop of $THIS_REPO; this one comes from $HEAD_BRANCH of $HEAD_REPO."
+            echo "::error::Pull requests into main must come from develop of $THIS_REPO; this one comes from $HEAD_BRANCH of $HEAD_REPO."
             exit 1
           fi
-          echo "OK: develop into master"
+          echo "OK: develop into main"

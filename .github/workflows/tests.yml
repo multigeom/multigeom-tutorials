@@ -1,12 +1,12 @@
 name: tests
 
 # Run the tests of the notebooks (CPU, no data or checkpoints needed) on every pull request and on every push to develop or
-# master. The package is installed from GitHub: from its develop branch when this repository's develop is tested, from its
+# main. The package is installed from GitHub: from its develop branch when this repository's develop is tested, from its
 # main branch otherwise.
 on:
   pull_request:
   push:
-    branches: [master, develop]
+    branches: [main, develop]
   workflow_dispatch:
 
 jobs:
