@@ -18,8 +18,8 @@ large and unreadable in diffs, do not clutter the package history.
 | Notebook | What it does | Needs | Time |
 |---|---|---|---|
 | `0_getting_started_use_a_builtin_encoder` | Load an encoder of the paper (fitted to macaque V1 or V4), look inside, predict neural responses, compute its Fisher metric J(x). | the package, internet, CPU | about 1 min |
-| `1_getting_started_synthetic_neural_data` | Build an encoder from scratch on synthetic neural data with a known ground truth: backbone, readout, `fit_readout`, `save`, `load`, `predict`. | TinyImageNet | about 1 min on a GPU |
-| `2_getting_started_diffusion_and_g` | Train the diffusion model of that encoder and compute the multi-scale metric G(x) next to J(x). | TinyImageNet | about 2 min on a GPU |
+| `1_create_your_encoder` | Build an encoder from scratch on synthetic neural data with a known ground truth: backbone, readout, `fit_readout`, `save`, `load`, `predict`. | TinyImageNet | about 1 min on a GPU |
+| `2_getting_started_diffusion_and_pipeline` | Train the diffusion model of that encoder and compute the multi-scale metric G(x) next to J(x). | TinyImageNet | about 2 min on a GPU |
 
 **Reproduce the paper**:
 
