@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from nb_helpers import REPO, run_all_code_cells  # noqa: E402
 
 NB1 = REPO / "notebooks" / "1_create_your_encoder.ipynb"
-NB2 = REPO / "notebooks" / "2_getting_started_diffusion_and_pipeline.ipynb"
+NB2 = REPO / "notebooks" / "2_compute_g.ipynb"
 
 
 @pytest.fixture(scope="module")
