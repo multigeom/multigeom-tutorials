@@ -42,10 +42,9 @@ that paths such as `aardvark/aardvark_01b.jpg` resolve. Images listed in
 
 The 100,000 training images train the conditional diffusion model (diffusion training);
 the first 200 validation images, in sorted file order, are the held-out test
-images on which G(x) and J(x) are evaluated (G(x) and J(x) estimation and the local metric field). Download
-`tiny-imagenet-200.zip` (http://cs231n.stanford.edu/tiny-imagenet-200.zip) and
-unzip it to `data/tiny-imagenet-200/`; the archive's own layout is the one
-expected above.
+images on which G(x) and J(x) are evaluated (G(x) and J(x) estimation and the local metric field). The notebooks download it
+the first time (240 MB) with `multigeom.data.download_tinyimagenet()`, which unpacks `tiny-imagenet-200.zip`
+(http://cs231n.stanford.edu/tiny-imagenet-200.zip) to `data/tiny-imagenet-200/`; the archive's own layout is the one expected above.
 
 ## 4. Pretrained weights
 
