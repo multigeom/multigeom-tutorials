@@ -8,11 +8,12 @@ encoder).
        images pooled, for V1 (B) and V4 (C). The title gives the mean
        per-neuron Pearson correlation. Source: Stage-1 checkpoints
        (test_responses, test_predictions, per_neuron_test_corr).
-  D    the example image with the V1 (blue) and V4 (yellow) receptive-field
-       regions outlined. Each neuron's region is where its Gaussian readout
-       mask is at least half its peak; the outline is the boundary of the
-       union over the 50 neurons (see `multigeom.encoders.receptive_field` for the mapping from
-       readout coordinates to pixels).
+  D
+      the example image with the V1 (blue) and V4 (yellow) receptive-field regions
+      outlined. Each neuron's region is where its Gaussian readout mask is at least half
+      its peak; the outline is the boundary of the union over the 50 neurons (see
+      `multigeom.encoders.receptive_field` for the mapping from readout coordinates to
+      pixels).
   E    leading eigenvectors of G(x) for the example image, V1 (top) and V4
        (bottom). Source: Stage-4 per-image files.
   F    same as E for J(x).
@@ -24,6 +25,7 @@ arbitrary.
 Usage:
     python -m figures.fig3 --runs-dir runs --out-dir figures/out --img-idx 0
 """
+
 from __future__ import annotations
 
 import argparse
@@ -37,8 +39,20 @@ import torch
 from multigeom.encoders.receptive_field import readout_receptive_field
 
 from .style import (
-    AREA_COLORS, AREAS, IMAGE_SIZE, METRIC_TITLES, RF_COLORS, as_numpy, blank,
-    encoder_checkpoint, panel_label, per_image, plt, save_figure, show_eigenvector, skip,
+    AREA_COLORS,
+    AREAS,
+    IMAGE_SIZE,
+    METRIC_TITLES,
+    RF_COLORS,
+    as_numpy,
+    blank,
+    encoder_checkpoint,
+    panel_label,
+    per_image,
+    plt,
+    save_figure,
+    show_eigenvector,
+    skip,
 )
 
 SCRIPT = "fig3"
@@ -53,7 +67,9 @@ def parse_args(argv: list[str] | None = None):
     p = argparse.ArgumentParser()
     p.add_argument("--runs-dir", default="runs")
     p.add_argument("--out-dir", default="figures/out")
-    p.add_argument("--img-idx", type=int, default=0, help="example image (Stage-4 index)")
+    p.add_argument(
+        "--img-idx", type=int, default=0, help="example image (Stage-4 index)"
+    )
     p.add_argument("--n-eigvecs", type=int, default=4)
     return p.parse_args(argv)
 
@@ -68,8 +84,15 @@ def panel_scatter(ax, ckpt: dict | None, area: str) -> None:
     pred = as_numpy(ckpt["test_predictions"]).ravel()
     meas = as_numpy(ckpt["test_responses"]).ravel()
     r_mean = float(np.mean(as_numpy(ckpt["per_neuron_test_corr"])))
-    ax.scatter(meas, pred, s=4, alpha=0.4, c=AREA_COLORS[area], edgecolors="none",
-               rasterized=True)
+    ax.scatter(
+        meas,
+        pred,
+        s=4,
+        alpha=0.4,
+        c=AREA_COLORS[area],
+        edgecolors="none",
+        rasterized=True,
+    )
     lo = min(meas.min(), pred.min())
     hi = max(meas.max(), pred.max())
     pad = 0.05 * (hi - lo)
@@ -88,18 +111,39 @@ def panel_rf(ax, image, ckpts: dict) -> None:
     if image is None:
         blank(ax)
         return
-    ax.imshow(as_numpy(image).reshape(IMAGE_SIZE, IMAGE_SIZE), cmap="gray", vmin=-1, vmax=1,
-              extent=(0, IMAGE_SIZE, IMAGE_SIZE, 0))
+    ax.imshow(
+        as_numpy(image).reshape(IMAGE_SIZE, IMAGE_SIZE),
+        cmap="gray",
+        vmin=-1,
+        vmax=1,
+        extent=(0, IMAGE_SIZE, IMAGE_SIZE, 0),
+    )
     x_text = 0.0
     for area in AREAS:
         ckpt = ckpts.get(area)
         if ckpt is None:
             continue
-        field, coords = readout_receptive_field(ckpt["model_state_dict"], feature_side=FEATURE_SIDE[ENCODER])
-        ax.contour(coords, coords, field, levels=[0.5], colors=[RF_COLORS[area]],
-                   linewidths=2.0)
-        ax.text(x_text, -0.03, f"{area} RFs", transform=ax.transAxes, color=RF_COLORS[area],
-                fontsize=11, fontweight="bold", va="top")
+        field, coords = readout_receptive_field(
+            ckpt["model_state_dict"], feature_side=FEATURE_SIDE[ENCODER]
+        )
+        ax.contour(
+            coords,
+            coords,
+            field,
+            levels=[0.5],
+            colors=[RF_COLORS[area]],
+            linewidths=2.0,
+        )
+        ax.text(
+            x_text,
+            -0.03,
+            f"{area} RFs",
+            transform=ax.transAxes,
+            color=RF_COLORS[area],
+            fontsize=11,
+            fontweight="bold",
+            va="top",
+        )
         x_text += 0.5
     ax.set_xlim(0, IMAGE_SIZE)
     ax.set_ylim(IMAGE_SIZE, 0)
@@ -109,11 +153,20 @@ def panel_rf(ax, image, ckpts: dict) -> None:
 
 def panel_eigvecs(fig, spec, records: dict, metric: str, n_show: int):
     """Two rows (V1, V4) of the leading `n_show` eigenvectors of one metric."""
-    inner = spec.subgridspec(3, n_show, height_ratios=[0.12, 1, 1], hspace=0.25, wspace=0.04)
+    inner = spec.subgridspec(
+        3, n_show, height_ratios=[0.12, 1, 1], hspace=0.25, wspace=0.04
+    )
     title_ax = fig.add_subplot(inner[0, :])
     title_ax.axis("off")
-    title_ax.text(0.5, 0.0, METRIC_TITLES[metric], ha="center", va="bottom", fontsize=13,
-                  transform=title_ax.transAxes)
+    title_ax.text(
+        0.5,
+        0.0,
+        METRIC_TITLES[metric],
+        ha="center",
+        va="bottom",
+        fontsize=13,
+        transform=title_ax.transAxes,
+    )
     first = None
     for r, area in enumerate(AREAS):
         rec = records.get(area)
@@ -131,11 +184,17 @@ def panel_eigvecs(fig, spec, records: dict, metric: str, n_show: int):
 
 
 def main(argv: list[str] | None = None) -> list[Path]:
-    """Draw Figure 3 from the pipeline outputs and write it (command-line entry point)."""
+    """
+    Draw Figure 3 from the pipeline outputs and write it (command-line entry point).
+    """
     args = parse_args(argv)
     runs_dir = Path(args.runs_dir)
-    ckpts = {area: encoder_checkpoint(runs_dir, ENCODER, area, SCRIPT) for area in AREAS}
-    records = {area: per_image(runs_dir, ENCODER, area, args.img_idx, SCRIPT) for area in AREAS}
+    ckpts = {
+        area: encoder_checkpoint(runs_dir, ENCODER, area, SCRIPT) for area in AREAS
+    }
+    records = {
+        area: per_image(runs_dir, ENCODER, area, args.img_idx, SCRIPT) for area in AREAS
+    }
     image = next((rec["image"] for rec in records.values() if rec is not None), None)
 
     fig = plt.figure(figsize=(15, 7.6))

@@ -6,6 +6,7 @@ Stage-4 per-image files, Stage-5 JSON, Stage-6 metric fields) into tmp_path,
 with the OnOff configurations deliberately missing, and runs every script's
 main(). It needs neither diffusers nor pretrained weights.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -25,7 +26,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from multigeom.geometry.metric_field import (  # noqa: E402
-    ellipse_grid, ellipse_params, grid_coefficients, perturbation_grid, project_metric,
+    ellipse_grid,
+    ellipse_params,
+    grid_coefficients,
+    perturbation_grid,
+    project_metric,
 )
 
 P = 64 * 64
@@ -36,7 +41,7 @@ SIDE = {"inception": 12, "resnet50": 16}
 
 def _orthonormal_rows(k: int, g: torch.Generator) -> torch.Tensor:
     q, _ = torch.linalg.qr(torch.randn(P, k, generator=g))
-    return q.T.contiguous()                                    # [k, P]
+    return q.T.contiguous()  # [k, P]
 
 
 def _write_runs(root: Path) -> None:
@@ -51,25 +56,35 @@ def _write_runs(root: Path) -> None:
             oracle = rng.uniform(0.85, 0.95, N_NEURONS)
             d = root / "encoders" / enc / area
             d.mkdir(parents=True)
-            torch.save({
-                "model_state_dict": {
-                    "readout.mu": torch.rand(N_NEURONS, 2, generator=g) * 0.8 - 0.4,
-                    "readout.sigma": torch.rand(N_NEURONS, generator=g) * 0.2,
-                    "readout.grid_x": torch.linspace(-1, 1, side),
+            torch.save(
+                {
+                    "model_state_dict": {
+                        "readout.mu": torch.rand(N_NEURONS, 2, generator=g) * 0.8 - 0.4,
+                        "readout.sigma": torch.rand(N_NEURONS, generator=g) * 0.2,
+                        "readout.grid_x": torch.linspace(-1, 1, side),
+                    },
+                    "test_predictions": pred,
+                    "test_responses": resp,
+                    "per_neuron_test_corr": r,
+                    "per_neuron_test_corr_noise_corrected": r / oracle,
+                    "oracle": oracle,
+                    "test_corr": float(r.mean()),
                 },
-                "test_predictions": pred, "test_responses": resp,
-                "per_neuron_test_corr": r, "per_neuron_test_corr_noise_corrected": r / oracle,
-                "oracle": oracle, "test_corr": float(r.mean()),
-            }, d / "best_model.pt")
+                d / "best_model.pt",
+            )
             d = root / "per_image" / enc / area
             d.mkdir(parents=True)
-            torch.save({
-                "img_idx": 0, "image": image,
-                "G_eigenvalues": torch.linspace(2, 0.1, K),
-                "G_eigenvectors": _orthonormal_rows(K, g),
-                "J_eigenvalues": torch.linspace(9, 0.5, K),
-                "J_eigenvectors": _orthonormal_rows(K, g),
-            }, d / "img0000.pt")
+            torch.save(
+                {
+                    "img_idx": 0,
+                    "image": image,
+                    "G_eigenvalues": torch.linspace(2, 0.1, K),
+                    "G_eigenvectors": _orthonormal_rows(K, g),
+                    "J_eigenvalues": torch.linspace(9, 0.5, K),
+                    "J_eigenvectors": _orthonormal_rows(K, g),
+                },
+                d / "img0000.pt",
+            )
 
     ks = list(range(1, K + 1))
     pairs, named = {}, {}
@@ -83,7 +98,8 @@ def _write_runs(root: Path) -> None:
         for metric in ("G", "J"):
             label = f"{a}__VS__{b}__{metric}"
             pairs[label] = {
-                "k": ks, "n_images": 3,
+                "k": ks,
+                "n_images": 3,
                 "alignment_mean": rng.uniform(0.2, 0.8, K).tolist(),
                 "alignment_sem": [0.02] * K,
                 "bures_wasserstein_mean": np.linspace(0.5, 2, K).tolist(),
@@ -106,19 +122,34 @@ def _write_runs(root: Path) -> None:
                 M = torch.empty(3, 3, 2, 2, dtype=torch.float64)
                 for i in range(3):
                     for j in range(3):
-                        M[i, j] = project_metric(torch.rand(K, generator=g) * 3,
-                                                 _orthonormal_rows(K, g), V)
+                        M[i, j] = project_metric(
+                            torch.rand(K, generator=g) * 3, _orthonormal_rows(K, g), V
+                        )
                 matrices[enc] = M
-            torch.save({
-                "img_idx": 0, "metric": metric, "area": area,
-                "encoders": ["inception", "resnet50"],
-                "grid_coefficients": torch.from_numpy(coeffs),
-                "x0": image, "perturbed_images": images, "clamp_fraction": clamp,
-                "v1": V[0], "v2": V[1], "lambda1": 1.0, "lambda2": 0.5,
-                "eps1": 0.3, "eps2": 0.2, "matrices_2x2": matrices,
-                "ellipses": {e: torch.from_numpy(ellipse_grid(m.numpy()))
-                             for e, m in matrices.items()},
-            }, d / f"{metric}_{area}.pt")
+            torch.save(
+                {
+                    "img_idx": 0,
+                    "metric": metric,
+                    "area": area,
+                    "encoders": ["inception", "resnet50"],
+                    "grid_coefficients": torch.from_numpy(coeffs),
+                    "x0": image,
+                    "perturbed_images": images,
+                    "clamp_fraction": clamp,
+                    "v1": V[0],
+                    "v2": V[1],
+                    "lambda1": 1.0,
+                    "lambda2": 0.5,
+                    "eps1": 0.3,
+                    "eps2": 0.2,
+                    "matrices_2x2": matrices,
+                    "ellipses": {
+                        e: torch.from_numpy(ellipse_grid(m.numpy()))
+                        for e, m in matrices.items()
+                    },
+                },
+                d / f"{metric}_{area}.pt",
+            )
 
 
 @pytest.mark.slow
@@ -142,11 +173,14 @@ def test_figure_scripts_write_outputs(tmp_path):
         for fname in files:
             assert (out / fname).stat().st_size > 0, fname
     table = (out / "table1.tex").read_text()
-    assert "Inception" in table and "OnOff" not in table      # missing OnOff is skipped
+    assert "Inception" in table and "OnOff" not in table  # missing OnOff is skipped
 
 
 def test_style_keeps_the_notebook_backend_in_a_jupyter_kernel(monkeypatch):
-    """In a kernel, importing the figure style must not switch to Agg (a figure would show as text, not a picture)."""
+    """
+    In a kernel, importing the figure style must not switch to Agg (a figure would show
+    as text, not a picture).
+    """
     import sys
     import types
 
@@ -159,7 +193,7 @@ def test_style_keeps_the_notebook_backend_in_a_jupyter_kernel(monkeypatch):
     fake.get_ipython = lambda: None
     assert style._in_notebook() is False
     monkeypatch.delitem(sys.modules, "IPython")
-    monkeypatch.setitem(sys.modules, "IPython", None)               # not installed
+    monkeypatch.setitem(sys.modules, "IPython", None)  # not installed
     assert style._in_notebook() is False
 
 
@@ -167,13 +201,23 @@ def test_style_keeps_the_notebook_backend_in_a_jupyter_kernel(monkeypatch):
 def test_encoder_checkpoint_gives_the_scores_in_both_layouts(tmp_path, layout):
     from figures.style import encoder_checkpoint
 
-    scores = {"per_neuron_test_corr": np.array([0.5, 0.6]), "oracle": np.array([0.9, 0.9]), "test_corr": 0.55}
+    scores = {
+        "per_neuron_test_corr": np.array([0.5, 0.6]),
+        "oracle": np.array([0.9, 0.9]),
+        "test_corr": 0.55,
+    }
     ckpt = {"model_state_dict": {"readout.mu": torch.zeros(2, 2)}}
-    ckpt.update(scores if layout == "older paper checkpoint" else {"metadata": {"area": "V1", **scores}})
+    ckpt.update(
+        scores
+        if layout == "older paper checkpoint"
+        else {"metadata": {"area": "V1", **scores}}
+    )
     d = tmp_path / "encoders" / "inception" / "V1"
     d.mkdir(parents=True)
     torch.save(ckpt, d / "best_model.pt")
     got = encoder_checkpoint(tmp_path, "inception", "V1", "test")
-    np.testing.assert_array_equal(got["per_neuron_test_corr"], scores["per_neuron_test_corr"])
+    np.testing.assert_array_equal(
+        got["per_neuron_test_corr"], scores["per_neuron_test_corr"]
+    )
     assert got["test_corr"] == 0.55 and "model_state_dict" in got
     assert encoder_checkpoint(tmp_path, "inception", "V4", "test") is None

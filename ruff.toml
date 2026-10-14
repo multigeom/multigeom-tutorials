@@ -1,0 +1,8 @@
+line-length = 88                      # one limit for the notebooks, the figures and the tests
+extend-exclude = ["env", "*.md"]
+
+[lint]
+select = ["E501"]                     # line length (the formatter does the rest)
+
+[format]
+skip-magic-trailing-comma = true      # a call that fits on a few lines is not exploded
