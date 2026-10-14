@@ -12,7 +12,16 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from nb_helpers import AREAS, COMPUTE, ENCODERS, LOAD_MODELS, REPO, SETUP, run_cells  # noqa: E402
+from nb_helpers import (  # noqa: E402
+    AREAS,
+    COMPUTE,
+    ENCODERS,
+    FUNCTIONS,
+    LOAD_MODELS,
+    REPO,
+    SETUP,
+    run_cells,
+)  # noqa: E402
 
 
 def have_inputs() -> bool:
@@ -39,6 +48,6 @@ def notebook_run():
     cwd = os.getcwd()
     os.chdir(REPO)
     try:
-        yield run_cells({}, SETUP, LOAD_MODELS, COMPUTE)
+        yield run_cells({}, SETUP, FUNCTIONS, LOAD_MODELS, COMPUTE)
     finally:
         os.chdir(cwd)
