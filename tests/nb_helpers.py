@@ -16,6 +16,7 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures" / "fig3"
 # notebook's setup cell for their imports (plt, panel_rf, ...), supplied by
 # `render_plot_cell`.
 SETUP = "# import built-in packages"
+FUNCTIONS = "def load_models("
 LOAD_MODELS = "alphas_cumprod = scheduler.alphas_cumprod"
 COMPUTE = "ckpts, records = {}, {}"
 PLOT_FIG3 = "panel_rf("

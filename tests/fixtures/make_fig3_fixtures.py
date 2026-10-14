@@ -35,6 +35,7 @@ from nb_helpers import (  # noqa: E402
     COMPUTE,
     ENCODERS,
     FIXTURES,
+    FUNCTIONS,
     LOAD_MODELS,
     N_FIG3,
     N_FIG4_POOL,
@@ -47,7 +48,7 @@ from nb_helpers import (  # noqa: E402
 
 
 def main():
-    ns = run_cells({}, SETUP, LOAD_MODELS, COMPUTE)
+    ns = run_cells({}, SETUP, FUNCTIONS, LOAD_MODELS, COMPUTE)
     fig3 = {
         "image": ns["x"].cpu().numpy().reshape(64, 64),
         "n_mc": np.array(ns["N_MC"]),
