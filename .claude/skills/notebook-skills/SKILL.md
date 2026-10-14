@@ -69,6 +69,7 @@ print("words before the first code cell:", sum(len(words(t)) for t, k in cells[:
 print("longest markdown cell:", max(len(words(t)) for t in md), "words")
 intro = [len(words(cells[i][0])) for i in range(1, len(cells) - 1) if cells[i][1] == "markdown" and cells[i + 1][1] == "code"]
 print("longest introduction of a code cell:", max(intro), "words")
+print("code cells right after a code cell:", sum(1 for i in range(1, len(cells)) if cells[i][1] == cells[i - 1][1] == "code"))
 print("code cells without %%time:", sum(1 for t, k in cells if k == "code" and not t.lstrip().startswith("%%time")))
 sentences = [s for t in md for s in re.split(r"(?<=[.!?])\s+", strip(t)) if len(words(s)) > 2]
 print("mean sentence length:", round(sum(len(words(s)) for s in sentences) / len(sentences), 1), "words")
@@ -83,18 +84,31 @@ Report the numbers in your answer. If a budget is exceeded, shorten the text and
 
 ## 3. Code cells
 
+**Structure**
+- **Every code cell is preceded by a markdown cell** that says, in a sentence, what the cell does (a section or subsection heading with its sentence counts). Never put two code cells in a row.
+- **Definitions have their own cell.** Classes and functions are defined in a code cell that comes before the cells that use them, and that cell contains nothing else: no scripted steps. Helpers go in the setup section (`### 1.3. Custom functions`); a class that is the point of a section (a backbone you write, a model you test) goes in the cell right before the script that uses it, with its own sentence of introduction.
+- A script cell has one job and fits on a screen (about 30 lines). Longer: split it in two cells, each with its sentence.
+
+**Comments**
+- Comment the abstract structure of the cell, not every line. In a cell of more than about eight lines, start each key step with a numbered comment: `# 1. load the models`, `# 2. estimate G(x) and J(x)`, `# 3. plot`. A reader should understand the whole cell by reading only these comments.
+- Say what a step does and why. Do not restate the code (`# loop over the images`). Keep the short inline comments that explain a constant or a unit.
+- Group the imports under one comment per group (`# libraries and the package`).
+
+**Content**
+
 - The first code cell installs the package on Google Colab only: `if "google.colab" in sys.modules: %pip install -q --no-deps --pre multigeom` (plus what Colab lacks, such as `diffusers` for notebook 2). Nothing runs on a laptop.
 - The next cell moves to the repository root (the folder with `environment.yml`) and, when the notebook imports from `figures/`, adds the root to `sys.path`.
 - Parameters are upper-case names in one cell, with a one-line comment each. The tests override them.
 - Data comes from the package: `download_tinyimagenet()`, `download_tvsd()`, `download_things_images(accept_license=True)` in `multigeom.datasets`. Never add a `.sh` script or ask the reader to download by hand.
 - Import from `multigeom.<entry point>`: `datasets`, `encoders`, `diffusion`, `geometry`, `analysis`, `pipeline`, `utils`. Plot helpers for the paper's figures are in `figures/` of this repository, not in the package.
-- A code cell has one job and fits on a screen. Move repeated logic into the package, with a test, instead of growing the notebook.
+- Move repeated logic into the package, with a test, instead of growing the notebook.
 - Every code cell starts with `%%time`, so that each cell shows how long it takes. (The tests ignore the `%%` lines.)
 - Use `show_figure(fig)` from `multigeom.utils` to display a figure.
 
 ## 4. Editing the files safely
 
-- Edit the JSON of a notebook in place with exact string replacements. Do not load and re-dump it: that rewrites the whole file and buries the change in the diff. Check `git diff --stat` before committing; a few lines are expected, hundreds are not. Check with `json.load` that the file is still valid.
+- Editing the JSON: `json.load` then `json.dumps(nb, indent=1, ensure_ascii=False) + "\n"` reproduces our notebooks byte for byte, so structural edits (splitting or inserting cells) can be done on the loaded notebook. Check `git diff --stat` before committing: a few lines are expected, hundreds are not (then undo and use exact string replacements instead). Check that the file is still valid JSON.
+- When you split a code cell, the outputs stay with the cell that produces them (the script cell); give every new cell a unique `id` and `"execution_count": null`.
 - Keep the stored outputs of a notebook unless the task is to refresh them. When the user re-runs a notebook and saves it, their saved version is the reference: read it to see how they want it written, and learn from it (this is how the first-cell template above was set).
 - The tests in `tests/` find cells by a unique line (the markers in `tests/nb_helpers.py`, such as `lmf.launch(job)` or `ns["show_figure"]`). If you change one of these lines, change the marker too, and run the tests.
 - A notebook that the user has open may have unsaved or uncommitted changes. Look at `git status` first, and do not overwrite or commit changes you did not make.
