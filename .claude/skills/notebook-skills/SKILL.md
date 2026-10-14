@@ -15,7 +15,8 @@ A notebook is for someone who wants to see the package work in a few minutes. Ev
 |---|---|
 | Words in the first markdown cell (the template of section 1, author included) | at most 90 |
 | Words before the first code cell (all markdown above it, collapsed details excluded) | at most 120 |
-| Any other markdown cell | at most 80 words, 5 sentences |
+| The markdown that introduces a code cell | at most 40 words and 2 sentences (tables, code blocks and `<details>` are not counted) |
+| Any other markdown cell (recap, transition) | at most 80 words |
 | Sentence | at most 25 words, one idea |
 | Flesch-Kincaid grade of the prose | at most 10 |
 | Bullets in one cell | at most 5 |
@@ -42,7 +43,8 @@ A notebook is for someone who wants to see the package work in a few minutes. Ev
 - If a notebook needs more explanation (cost, how to read the result, the formula, the supporting functions), put it in a second markdown cell inside `<details><summary>Details</summary> ... </details>`. It stays collapsed, so the reader sees the short version first and nothing is lost. Do not count it in the budgets.
 
 **How to write**
-- Say what a step does in one sentence, before its code. Do not repeat what the code or its comments already say.
+- **Introduce a code cell in one or two sentences**: what it does and why, nothing the code or its comments already say. Anything more (how it works, caveats, parameters, differences with the paper, a long table of options) goes in a `<details><summary>Details</summary> ... </details>` block at the end of the same cell, so it is there for the reader who wants it and hidden for the one who does not. A table is for what the reader must choose or compare, never for prose in disguise.
+- Do not write execution times in the text: every code cell shows its own time (section 3).
 - Explain a concept once, where it is first used, in one or two sentences, with a link for more. Never re-define it later.
 - Active voice, short words, "you" for the reader. Define an acronym or a symbol the first time, or avoid it.
 - Prefer a short table or a figure to a paragraph. Do not use bold for emphasis in running text; use it for the few terms a reader must remember.
@@ -56,7 +58,7 @@ Run this on the notebook you changed, before and after (it needs no package beyo
 ```python
 import json, re, sys
 nb = json.load(open(sys.argv[1]))
-strip = lambda t: re.sub(r"<details>.*?</details>|```.*?```|`[^`]*`|\$[^$]*\$|\[([^\]]*)\]\([^)]*\)|<[^>]+>|[#*|>_-]", " ", t, flags=re.S)
+strip = lambda t: re.sub(r"(?m)^\|.*$|<details>.*?</details>|```.*?```|`[^`]*`|\$[^$]*\$|\[([^\]]*)\]\([^)]*\)|<[^>]+>|[#*|>_-]", " ", t, flags=re.S)
 words = lambda t: re.findall(r"[A-Za-z][A-Za-z'-]+", strip(t))
 cells = [("".join(c["source"]), c["cell_type"]) for c in nb["cells"]]
 md = [t for t, k in cells if k == "markdown"]
@@ -65,6 +67,9 @@ print("markdown words:", sum(len(words(t)) for t in md))
 print("words in the first cell:", len(words(cells[0][0])))
 print("words before the first code cell:", sum(len(words(t)) for t, k in cells[:first_code]))
 print("longest markdown cell:", max(len(words(t)) for t in md), "words")
+intro = [len(words(cells[i][0])) for i in range(1, len(cells) - 1) if cells[i][1] == "markdown" and cells[i + 1][1] == "code"]
+print("longest introduction of a code cell:", max(intro), "words")
+print("code cells without %%time:", sum(1 for t, k in cells if k == "code" and not t.lstrip().startswith("%%time")))
 sentences = [s for t in md for s in re.split(r"(?<=[.!?])\s+", strip(t)) if len(words(s)) > 2]
 print("mean sentence length:", round(sum(len(words(s)) for s in sentences) / len(sentences), 1), "words")
 try:
@@ -84,6 +89,7 @@ Report the numbers in your answer. If a budget is exceeded, shorten the text and
 - Data comes from the package: `download_tinyimagenet()`, `download_tvsd()`, `download_things_images(accept_license=True)` in `multigeom.datasets`. Never add a `.sh` script or ask the reader to download by hand.
 - Import from `multigeom.<entry point>`: `datasets`, `encoders`, `diffusion`, `geometry`, `analysis`, `pipeline`, `utils`. Plot helpers for the paper's figures are in `figures/` of this repository, not in the package.
 - A code cell has one job and fits on a screen. Move repeated logic into the package, with a test, instead of growing the notebook.
+- Every code cell starts with `%%time`, so that each cell shows how long it takes. (The tests ignore the `%%` lines.)
 - Use `show_figure(fig)` from `multigeom.utils` to display a figure.
 
 ## 4. Editing the files safely
