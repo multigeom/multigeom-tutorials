@@ -28,7 +28,7 @@ NOTEBOOK3 = REPO / "notebooks" / "5_local_metric_field.ipynb"
 SETUP3 = "from multigeom.pipeline import metric_field_job as lmf"
 LAUNCH3 = "lmf.launch(job)"
 WAIT3 = "lmf.wait(job"
-PLOT3 = "lmf.plot_metric_field(job)"
+PLOT3 = "show_figure(make_figure(lmf.load_records(job)))"
 
 
 NOTEBOOK4 = REPO / "notebooks" / "6_bures_wasserstein.ipynb"
@@ -36,7 +36,7 @@ NOTEBOOK4 = REPO / "notebooks" / "6_bures_wasserstein.ipynb"
 SETUP4 = "from multigeom.pipeline import alignment as bw"
 COMPUTE4 = "bw.compute_metrics(RUNS_DIR"
 ORDER4 = "bw.print_ordering(metrics)"
-PLOT4 = "viz.plot_bures_wasserstein(metrics)"
+PLOT4 = "show_figure(plot_bures_wasserstein(metrics))"
 
 
 def notebook_cell(marker: str, notebook: Path | None = None) -> str:
@@ -115,9 +115,9 @@ def render_plot_cell(ckpts: dict, records: dict, out_png: Path, which: str = "fi
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    from multigeom.viz.style import panel_label
-    from multigeom.viz.fig3 import panel_eigvecs, panel_rf
-    from multigeom.viz.fig4 import panel_eigvecs as panel_eigvecs_fig4
+    from figures.style import panel_label
+    from figures.fig3 import panel_eigvecs, panel_rf
+    from figures.fig4 import panel_eigvecs as panel_eigvecs_fig4
 
     plt.close("all")
     ns = run_cells({"plt": plt, "ckpts": ckpts, "records": records, "ENC": "inception", "AREAS": list(AREAS),

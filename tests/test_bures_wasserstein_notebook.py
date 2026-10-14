@@ -65,8 +65,8 @@ def test_fixture_info_agrees_with_its_source_and_the_repository():
     assert i["ordering"]["G"]["matches_paper"] and i["ordering"]["J"]["matches_paper"]
     import inspect
 
-    from multigeom.viz.fig_app_bw import make_figure  # noqa: F401
-    assert i["plot"]["function"] == "multigeom.viz.fig_app_bw.make_figure"
+    from figures.fig_app_bw import make_figure  # noqa: F401
+    assert i["plot"]["function"] == "figures.fig_app_bw.make_figure"
     from multigeom.config import load_config
     est = load_config("estimator")
     assert i["estimator"]["n_samples"] == int(est.monte_carlo.n_samples) and i["estimator"]["seed"] == int(est.seed), \
@@ -91,7 +91,7 @@ def test_plot_cell_draws_the_reference_figure(at_repo_root, tmp_path, monkeypatc
     ns["metrics_path"] = SOURCE
     ns["metrics"] = bw.load_metrics(SOURCE)
     drawn = {}
-    monkeypatch.setattr(ns["viz"], "show_figure", lambda fig, dpi=110: drawn.setdefault("fig", fig))
+    monkeypatch.setitem(ns, "show_figure", lambda fig, dpi=110: drawn.setdefault("fig", fig))
     run_cells(ns, PLOT4, notebook=NOTEBOOK4)
     assert "fig" in drawn, "the plot cell did not draw a figure"
     drawn["fig"].savefig(tmp_path / "plot.png", dpi=100, bbox_inches="tight")
@@ -136,6 +136,6 @@ def test_notebook_runs_stage5_and_plots_in_a_scratch_copy(at_repo_root, tmp_path
     run_cells(ns, ORDER4, notebook=NOTEBOOK4)
     assert ns["order"]["G"] is not None and ns["order"]["J"] is not None
     drawn = {}
-    monkeypatch.setattr(ns["viz"], "show_figure", lambda fig, dpi=110: drawn.setdefault("fig", fig))
+    monkeypatch.setitem(ns, "show_figure", lambda fig, dpi=110: drawn.setdefault("fig", fig))
     run_cells(ns, PLOT4, notebook=NOTEBOOK4)
     assert "fig" in drawn

@@ -20,7 +20,7 @@ data/
 
 Multi-unit activity recorded with chronic Utah arrays in macaque V1, V4 and
 IT while the animal viewed THINGS images (Papale et al., *Neuron*, 2025).
-`multigeom.data.download_tvsd()` downloads the files for monkey N (237 MB) from GIN into `data/tvsd/`:
+`multigeom.datasets.download_tvsd()` downloads the files for monkey N (237 MB) from GIN into `data/tvsd/`:
 
 - `monkeyN_THINGS_normMUA.mat`: trial-averaged, normalised multi-unit
   activity (`train_MUA`, `test_MUA`), the 30 single-trial responses to each
@@ -33,7 +33,7 @@ IT while the animal viewed THINGS images (Papale et al., *Neuron*, 2025).
 ## 2. THINGS image database
 
 The stimulus images the TVSD responses are aligned to (Hebart et al., 2019).
-`multigeom.data.download_things_images(accept_license=True)` downloads the archive (5 GB) and unpacks the `object_images` folder
+`multigeom.datasets.download_things_images(accept_license=True)` downloads the archive (5 GB) and unpacks the `object_images` folder
 to `data/things_images/object_images/`, so that paths such as `aardvark/aardvark_01b.jpg` resolve. The images are shared
 under a licence (research and non-commercial use only, no redistribution or alteration; <https://osf.io/jum2f/>): read it
 before passing `accept_license=True`. Images listed in
@@ -44,7 +44,7 @@ before passing `accept_license=True`. Images listed in
 The 100,000 training images train the conditional diffusion model (diffusion training);
 the first 200 validation images, in sorted file order, are the held-out test
 images on which G(x) and J(x) are evaluated (G(x) and J(x) estimation and the local metric field). The notebooks download it
-the first time (240 MB) with `multigeom.data.download_tinyimagenet()`, which unpacks `tiny-imagenet-200.zip`
+the first time (240 MB) with `multigeom.datasets.download_tinyimagenet()`, which unpacks `tiny-imagenet-200.zip`
 (http://cs231n.stanford.edu/tiny-imagenet-200.zip) to `data/tiny-imagenet-200/`; the archive's own layout is the one expected above.
 
 ## 4. Pretrained weights
