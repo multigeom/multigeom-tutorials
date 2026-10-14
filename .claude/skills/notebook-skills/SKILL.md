@@ -47,7 +47,7 @@ A notebook is for someone who wants to see the package work in a few minutes. Ev
 - Active voice, short words, "you" for the reader. Define an acronym or a symbol the first time, or avoid it.
 - Prefer a short table or a figure to a paragraph. Do not use bold for emphasis in running text; use it for the few terms a reader must remember.
 - Put background (paper, maths, design choices) in the documentation or the README, and link to it from the notebook.
-- Numbered section headings only when there are more than four sections.
+- **Number every section, so that it can be referred to** ("see section 4.2"). The title is `#` and unnumbered. Sections are `## 1. Title`, subsections `### 1.1. Title`, with a dot after each number and the same format in every notebook. No heading is left unnumbered: the recap too (`## 6. Recap`), and so is a subsection (`### 2.1. What the readout learned`). When you insert or remove a section, renumber the ones after it and fix every "section N" mentioned in text or in comments.
 
 ## 2. Measure it
 
