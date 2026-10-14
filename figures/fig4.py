@@ -24,6 +24,7 @@ eigenvectors. Eigenvector colour scales as in fig3.py.
 Usage:
     python -m figures.fig4 --runs-dir runs --out-dir figures/out --img-idx 0
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,9 +37,22 @@ import numpy as np
 from multigeom.analysis import match_eigenvectors
 
 from .style import (
-    AREAS, ENCODER_COLORS, ENCODER_LABELS, ENCODERS, METRIC_TITLES, as_numpy, blank,
-    cross_encoder_metrics, encoder_checkpoint, panel_label, per_image,
-    plot_comparisons, plt, save_figure, show_eigenvector, skip,
+    AREAS,
+    ENCODER_COLORS,
+    ENCODER_LABELS,
+    ENCODERS,
+    METRIC_TITLES,
+    as_numpy,
+    blank,
+    cross_encoder_metrics,
+    encoder_checkpoint,
+    panel_label,
+    per_image,
+    plot_comparisons,
+    plt,
+    save_figure,
+    show_eigenvector,
+    skip,
 )
 
 SCRIPT = "fig4"
@@ -50,16 +64,24 @@ def parse_args(argv: list[str] | None = None):
     p = argparse.ArgumentParser()
     p.add_argument("--runs-dir", default="runs")
     p.add_argument("--out-dir", default="figures/out")
-    p.add_argument("--img-idx", type=int, default=0, help="example image (Stage-4 index)")
+    p.add_argument(
+        "--img-idx", type=int, default=0, help="example image (Stage-4 index)"
+    )
     p.add_argument("--n-eigvecs", type=int, default=3)
-    p.add_argument("--match-pool", type=int, default=30,
-                   help="eigenvectors of ResNet-50/OnOff searched for the best match "
-                        "to each displayed Inception eigenvector")
+    p.add_argument(
+        "--match-pool",
+        type=int,
+        default=30,
+        help="eigenvectors of ResNet-50/OnOff searched for the best match "
+        "to each displayed Inception eigenvector",
+    )
     return p.parse_args(argv)
 
 
 def panel_performance(ax, ckpts: dict) -> None:
-    """Box plot of the per-neuron test correlations of each encoder and area (Fig. 4A)."""
+    """
+    Box plot of the per-neuron test correlations of each encoder and area (Fig. 4A).
+    """
     width, gap = 0.24, 0.04
     handles = []
     for ei, enc in enumerate(ENCODERS):
@@ -67,22 +89,44 @@ def panel_performance(ax, ckpts: dict) -> None:
             ckpt = ckpts.get((enc, area))
             if ckpt is None or "per_neuron_test_corr" not in ckpt:
                 if ckpt is not None:
-                    skip(SCRIPT, f"{enc}/{area} performance: checkpoint has no per_neuron_test_corr "
-                                 "(run Stage 1 with --evaluate-only)")
+                    skip(
+                        SCRIPT,
+                        f"{enc}/{area} performance: checkpoint has no "
+                        "per_neuron_test_corr "
+                        "(run Stage 1 with --evaluate-only)",
+                    )
                 continue
             r = as_numpy(ckpt["per_neuron_test_corr"]).astype(float)
             pos = gi + (ei - 1) * (width + gap)
-            bp = ax.boxplot([r], positions=[pos], widths=width, patch_artist=True,
-                            showfliers=True, flierprops=dict(marker="o", markersize=2.5,
-                                                             markerfacecolor="0.6",
-                                                             markeredgecolor="none"))
+            bp = ax.boxplot(
+                [r],
+                positions=[pos],
+                widths=width,
+                patch_artist=True,
+                showfliers=True,
+                flierprops=dict(
+                    marker="o",
+                    markersize=2.5,
+                    markerfacecolor="0.6",
+                    markeredgecolor="none",
+                ),
+            )
             bp["boxes"][0].set_facecolor(ENCODER_COLORS[enc])
             bp["boxes"][0].set_edgecolor("black")
             bp["boxes"][0].set_linewidth(0.7)
             bp["medians"][0].set_color("black")
             sem = r.std(ddof=1) / np.sqrt(len(r)) if len(r) > 1 else 0.0
-            ax.errorbar(pos, r.mean(), yerr=sem, fmt="o", color="black", markersize=3,
-                        capsize=0, lw=1.0, zorder=5)
+            ax.errorbar(
+                pos,
+                r.mean(),
+                yerr=sem,
+                fmt="o",
+                color="black",
+                markersize=3,
+                capsize=0,
+                lw=1.0,
+                zorder=5,
+            )
         if any((enc, a) in ckpts for a in AREAS):
             handles.append(enc)
     ax.axhline(0, color="0.6", ls=":", lw=0.7)
@@ -92,28 +136,55 @@ def panel_performance(ax, ckpts: dict) -> None:
     ax.set_ylim(-0.15, 1.05)
     ax.set_ylabel("Test Pearson $r$")
     for i, enc in enumerate(handles):
-        ax.text(0.98, 0.99 - 0.07 * i, ENCODER_LABELS[enc], transform=ax.transAxes,
-                ha="right", va="top", color=ENCODER_COLORS[enc], fontweight="bold",
-                fontsize=10)
+        ax.text(
+            0.98,
+            0.99 - 0.07 * i,
+            ENCODER_LABELS[enc],
+            transform=ax.transAxes,
+            ha="right",
+            va="top",
+            color=ENCODER_COLORS[enc],
+            fontweight="bold",
+            fontsize=10,
+        )
 
 
 def panel_eigvecs(fig, spec, records: dict, metric: str, n_show: int, pool: int):
     """V1 block above V4 block; one row per encoder; returns the title axes."""
     n_enc = len(ENCODERS)
     heights = [0.25] + ([0.22] + [1.0] * n_enc) * len(AREAS)
-    inner = spec.subgridspec(len(heights), n_show + 2, height_ratios=heights,
-                             width_ratios=[0.35] + [1.0] * n_show + [0.3],
-                             hspace=0.08, wspace=0.04)
+    inner = spec.subgridspec(
+        len(heights),
+        n_show + 2,
+        height_ratios=heights,
+        width_ratios=[0.35] + [1.0] * n_show + [0.3],
+        hspace=0.08,
+        wspace=0.04,
+    )
     title_ax = fig.add_subplot(inner[0, 1:-1])
     title_ax.axis("off")
-    title_ax.text(0.5, 0.0, METRIC_TITLES[metric], ha="center", va="bottom", fontsize=13,
-                  transform=title_ax.transAxes)
+    title_ax.text(
+        0.5,
+        0.0,
+        METRIC_TITLES[metric],
+        ha="center",
+        va="bottom",
+        fontsize=13,
+        transform=title_ax.transAxes,
+    )
     row = 1
     for area in AREAS:
         head = fig.add_subplot(inner[row, 1:-1])
         head.axis("off")
-        head.text(0.5, 0.0, area, ha="center", va="bottom", fontsize=11,
-                  transform=head.transAxes)
+        head.text(
+            0.5,
+            0.0,
+            area,
+            ha="center",
+            va="bottom",
+            fontsize=11,
+            transform=head.transAxes,
+        )
         row += 1
         ref = records.get((REFERENCE, area))
         ref_vecs = None if ref is None else ref.get(f"{metric}_eigenvectors")
@@ -124,8 +195,16 @@ def panel_eigvecs(fig, spec, records: dict, metric: str, n_show: int, pool: int)
                 vecs = match_eigenvectors(ref_vecs, vecs, n_show, pool)
             lab = fig.add_subplot(inner[row, 0])
             lab.axis("off")
-            lab.text(1.0, 0.5, ENCODER_LABELS[enc], rotation=90, ha="right", va="center",
-                     fontsize=10, transform=lab.transAxes)
+            lab.text(
+                1.0,
+                0.5,
+                ENCODER_LABELS[enc],
+                rotation=90,
+                ha="right",
+                va="center",
+                fontsize=10,
+                transform=lab.transAxes,
+            )
             for k in range(n_show):
                 ax = fig.add_subplot(inner[row, 1 + k])
                 if vecs is None or k >= len(vecs):
@@ -134,14 +213,23 @@ def panel_eigvecs(fig, spec, records: dict, metric: str, n_show: int, pool: int)
                     show_eigenvector(ax, vecs[k])
             dots = fig.add_subplot(inner[row, -1])
             dots.axis("off")
-            dots.text(0.5, 0.5, "...", ha="center", va="center", fontsize=12,
-                      transform=dots.transAxes)
+            dots.text(
+                0.5,
+                0.5,
+                "...",
+                ha="center",
+                va="center",
+                fontsize=12,
+                transform=dots.transAxes,
+            )
             row += 1
     return title_ax
 
 
 def panel_alignment(ax, metrics, metric: str) -> None:
-    """Subspace alignment against the number of eigenvectors, for one metric (Fig. 4D-E)."""
+    """
+    Subspace alignment against the number of eigenvectors, for one metric (Fig. 4D-E).
+    """
     n = plot_comparisons(ax, metrics, metric, "alignment", SCRIPT)
     if n == 0:
         blank(ax)
@@ -155,7 +243,9 @@ def panel_alignment(ax, metrics, metric: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> list[Path]:
-    """Draw Figure 4 from the pipeline outputs and write it (command-line entry point)."""
+    """
+    Draw Figure 4 from the pipeline outputs and write it (command-line entry point).
+    """
     args = parse_args(argv)
     runs_dir = Path(args.runs_dir)
     ckpts, records = {}, {}

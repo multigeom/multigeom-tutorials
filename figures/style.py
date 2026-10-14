@@ -6,6 +6,7 @@ checkpoints and JSON), so they run on a CPU machine without `diffusers` or
 `plenoptic`. Missing inputs are reported with `skip(...)` and the element is
 left out; nothing here raises on a missing file.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,16 +16,20 @@ import matplotlib
 
 
 def _in_notebook() -> bool:
-    """True in a Jupyter kernel, where the notebook backend must be kept so that a figure is shown as a picture."""
+    """
+    True in a Jupyter kernel, where the notebook backend must be kept so that a figure
+    is shown as a picture.
+    """
     try:
         from IPython import get_ipython
+
         return getattr(get_ipython(), "kernel", None) is not None
     except ImportError:
         return False
 
 
 if not _in_notebook():
-    matplotlib.use("Agg")          # scripts: draw to files, without a display
+    matplotlib.use("Agg")  # scripts: draw to files, without a display
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
@@ -34,10 +39,14 @@ ENCODERS = ("inception", "resnet50", "onoff")
 AREAS = ("V1", "V4")
 
 ENCODER_LABELS = {"inception": "inception", "resnet50": "res-net", "onoff": "on-off"}
-ENCODER_LABELS_LONG = {"inception": "Inception", "resnet50": "ResNet-50", "onoff": "OnOff"}
+ENCODER_LABELS_LONG = {
+    "inception": "Inception",
+    "resnet50": "ResNet-50",
+    "onoff": "OnOff",
+}
 ENCODER_COLORS = {"inception": "#1F77B4", "resnet50": "#FF7F0E", "onoff": "#2CA58D"}
-AREA_COLORS = {"V1": "#0072B2", "V4": "#E69F00"}          # Fig. 3B-C scatter
-RF_COLORS = {"V1": "#56B4E9", "V4": "#E69F00"}            # Fig. 3D outlines (blue, yellow)
+AREA_COLORS = {"V1": "#0072B2", "V4": "#E69F00"}  # Fig. 3B-C scatter
+RF_COLORS = {"V1": "#56B4E9", "V4": "#E69F00"}  # Fig. 3D outlines (blue, yellow)
 METRIC_TITLES = {"G": "multi-scale Fisher", "J": "Fisher information"}
 EIGVEC_CMAP = "RdBu_r"
 
@@ -51,20 +60,22 @@ NAMED_COMPARISONS = (
     ("cross_model_V4_inception_resnet50", "Inc vs Res (V4)", "#882255", "-"),
 )
 
-plt.rcParams.update({
-    "font.family": "sans-serif",
-    "font.sans-serif": ["DejaVu Sans", "Helvetica", "Arial"],
-    "font.size": 9,
-    "axes.titlesize": 11,
-    "axes.labelsize": 10,
-    "xtick.labelsize": 8,
-    "ytick.labelsize": 8,
-    "axes.linewidth": 0.8,
-    "axes.spines.top": False,
-    "axes.spines.right": False,
-    "pdf.fonttype": 42,
-    "ps.fonttype": 42,
-})
+plt.rcParams.update(
+    {
+        "font.family": "sans-serif",
+        "font.sans-serif": ["DejaVu Sans", "Helvetica", "Arial"],
+        "font.size": 9,
+        "axes.titlesize": 11,
+        "axes.labelsize": 10,
+        "xtick.labelsize": 8,
+        "ytick.labelsize": 8,
+        "axes.linewidth": 0.8,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
+    }
+)
 
 
 def skip(script: str, what: str) -> None:
@@ -84,12 +95,16 @@ def encoder_checkpoint(runs_dir: Path, encoder: str, area: str, script: str):
     """
     Encoder checkpoint runs/encoders/<encoder>/<area>/best_model.pt, or None.
 
-    The scores of the fit (`per_neuron_test_corr`, `test_predictions`, `oracle`, ...) are returned as top-level entries
-    for both layouts: the paper's older checkpoints have them there, those written by `NeuralEncoder.save` keep them
-    in their `metadata`.
+    The scores of the fit (`per_neuron_test_corr`, `test_predictions`, `oracle`, ...)
+    are returned as top-level entries for both layouts: the paper's older checkpoints
+    have them there, those written by `NeuralEncoder.save` keep them in their
+    `metadata`.
     """
-    ckpt = load_torch(runs_dir / "encoders" / encoder / area / "best_model.pt",
-                      script, f"{encoder}/{area} encoder")
+    ckpt = load_torch(
+        runs_dir / "encoders" / encoder / area / "best_model.pt",
+        script,
+        f"{encoder}/{area} encoder",
+    )
     if isinstance(ckpt, dict) and "metadata" in ckpt:
         ckpt = {**ckpt, **ckpt["metadata"]}
     return ckpt
@@ -97,8 +112,11 @@ def encoder_checkpoint(runs_dir: Path, encoder: str, area: str, script: str):
 
 def per_image(runs_dir: Path, encoder: str, area: str, img_idx: int, script: str):
     """Stage-4 output runs/per_image/<encoder>/<area>/img{idx}.pt, or None."""
-    return load_torch(runs_dir / "per_image" / encoder / area / f"img{img_idx:04d}.pt",
-                      script, f"{encoder}/{area} eigenvectors of image {img_idx}")
+    return load_torch(
+        runs_dir / "per_image" / encoder / area / f"img{img_idx:04d}.pt",
+        script,
+        f"{encoder}/{area} eigenvectors of image {img_idx}",
+    )
 
 
 def cross_encoder_metrics(runs_dir: Path, script: str) -> dict | None:
@@ -111,7 +129,9 @@ def cross_encoder_metrics(runs_dir: Path, script: str) -> dict | None:
         return json.load(f)
 
 
-def plot_comparisons(ax, metrics: dict | None, metric: str, quantity: str, script: str) -> int:
+def plot_comparisons(
+    ax, metrics: dict | None, metric: str, quantity: str, script: str
+) -> int:
     """
     Draw the four NAMED_COMPARISONS for `metric` ("G" or "J") as mean ± s.e.m.
     across images versus k. `quantity` is "alignment" or "bures_wasserstein".
@@ -159,15 +179,30 @@ def blank(ax, text: str = "n/a") -> None:
     ax.set_yticks([])
     for s in ax.spines.values():
         s.set_visible(False)
-    ax.text(0.5, 0.5, text, transform=ax.transAxes, ha="center", va="center",
-            fontsize=8, color="0.5")
+    ax.text(
+        0.5,
+        0.5,
+        text,
+        transform=ax.transAxes,
+        ha="center",
+        va="center",
+        fontsize=8,
+        color="0.5",
+    )
 
 
 def panel_label(fig, ax, letter: str, dx: float = -0.02, dy: float = 0.01) -> None:
     """Bold panel letter at the top-left corner of `ax` (figure coordinates)."""
     box = ax.get_position()
-    fig.text(box.x0 + dx, box.y1 + dy, letter, fontsize=14, fontweight="bold",
-             ha="right", va="bottom")
+    fig.text(
+        box.x0 + dx,
+        box.y1 + dy,
+        letter,
+        fontsize=14,
+        fontweight="bold",
+        ha="right",
+        va="bottom",
+    )
 
 
 def save_figure(fig, out_dir: Path, name: str, dpi: int = 300) -> list[Path]:

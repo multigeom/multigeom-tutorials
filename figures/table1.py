@@ -15,6 +15,7 @@ table1.md (Markdown) and table1.tex (booktabs tabular) to --out-dir.
 Usage:
     python -m figures.table1 --runs-dir runs --out-dir figures/out
 """
+
 from __future__ import annotations
 
 import argparse
@@ -48,7 +49,10 @@ def encoder_scores(ckpt: dict) -> tuple[float, float]:
 
 
 def collect(runs_dir: Path) -> dict[tuple[str, str], tuple[float, float]]:
-    """The mean test correlation and its noise-corrected version of every (encoder, area) found under `runs_dir`."""
+    """
+    The mean test correlation and its noise-corrected version of every (encoder, area)
+    found under `runs_dir`.
+    """
     scores = {}
     for enc in ENCODERS:
         for area in AREAS:
@@ -59,7 +63,9 @@ def collect(runs_dir: Path) -> dict[tuple[str, str], tuple[float, float]]:
 
 
 def _cells(scores, bold) -> dict[str, list[tuple[str, bool]]]:
-    """Per encoder: four (value, is_best) cells in the order V1 r, V1 r_nc, V4 r, V4 r_nc."""
+    """
+    Per encoder: four (value, is_best) cells in the order V1 r, V1 r_nc, V4 r, V4 r_nc.
+    """
     columns = [(area, m) for area in AREAS for m in (0, 1)]
     best = {}
     for area, m in columns:
@@ -82,8 +88,7 @@ def _cells(scores, bold) -> dict[str, list[tuple[str, bool]]]:
 
 def to_markdown(scores) -> str:
     """The table of scores as Markdown."""
-    lines = ["| Encoder | V1 r | V1 r_nc | V4 r | V4 r_nc |",
-             "|---|---|---|---|---|"]
+    lines = ["| Encoder | V1 r | V1 r_nc | V4 r | V4 r_nc |", "|---|---|---|---|---|"]
     for enc, cells in _cells(scores, bold=True).items():
         txt = [f"**{v}**" if b else v for v, b in cells]
         lines.append(f"| {ENCODER_LABELS_LONG[enc]} | " + " | ".join(txt) + " |")
@@ -97,12 +102,18 @@ def to_latex(scores) -> str:
         r"\toprule",
         r" & \multicolumn{2}{c}{V1} & \multicolumn{2}{c}{V4} \\",
         r"\cmidrule(lr){2-3}\cmidrule(lr){4-5}",
-        r"Encoder & $\bar r$ & $\bar r_{\text{nc}}$ & $\bar r$ & $\bar r_{\text{nc}}$ \\",
+        (
+            r"Encoder & $\bar r$ & $\bar r_{\text{nc}}$ & $\bar r$ & $\bar "
+            r"r_{\text{nc}}$ "
+            r"\\"
+        ),
         r"\midrule",
     ]
     for enc, cells in _cells(scores, bold=True).items():
-        txt = [(rf"$\mathbf{{{v}}}$" if b else f"${v}$") if v != "--" else "--"
-               for v, b in cells]
+        txt = [
+            (rf"$\mathbf{{{v}}}$" if b else f"${v}$") if v != "--" else "--"
+            for v, b in cells
+        ]
         lines.append(f"{ENCODER_LABELS_LONG[enc]:<10} & " + " & ".join(txt) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     return "\n".join(lines) + "\n"
@@ -114,8 +125,10 @@ def main(argv: list[str] | None = None) -> list[Path]:
     out_dir = Path(args.out_dir)
     scores = collect(Path(args.runs_dir))
     if not scores:
-        print(f"[{SCRIPT}] no Stage-1 checkpoints found under {args.runs_dir}/encoders; "
-              "nothing to write.")
+        print(
+            f"[{SCRIPT}] no Stage-1 checkpoints found under {args.runs_dir}/encoders; "
+            "nothing to write."
+        )
         return []
     out_dir.mkdir(parents=True, exist_ok=True)
     md, tex = to_markdown(scores), to_latex(scores)

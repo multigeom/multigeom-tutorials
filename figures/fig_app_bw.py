@@ -13,6 +13,7 @@ Input: runs/metrics/cross_encoder_metrics.json (Stage 5).
 Usage:
     python -m figures.fig_app_bw --runs-dir runs --out-dir figures/out
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,7 +36,10 @@ def parse_args(argv: list[str] | None = None):
 
 
 def make_figure(metrics: dict):
-    """Fig. 6 from the Stage-5 JSON (as a dict): d_BW against k for G(x) (left) and J(x) (right); returns the figure."""
+    """
+    Fig. 6 from the Stage-5 JSON (as a dict): d_BW against k for G(x) (left) and J(x)
+    (right); returns the figure.
+    """
     fig, axes = plt.subplots(1, 2, figsize=(10, 3.8))
     for ax, metric in zip(axes, ("G", "J")):
         n = plot_comparisons(ax, metrics, metric, "bures_wasserstein", SCRIPT)

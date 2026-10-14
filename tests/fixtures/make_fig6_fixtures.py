@@ -1,18 +1,23 @@
 """
 Regenerate the Fig. 6 fixtures of notebooks/6_bures_wasserstein.ipynb:
 
-    tests/fixtures/fig6/fig6_reference.png    the notebook plot (Bures-Wasserstein distance against k)
-    tests/fixtures/fig6/fixture_info.json     how it was made: the Stage-5 file it is drawn from (name and md5), the
-        images per configuration and the estimator settings of that file (from the Fig. 4D-E fixture, which holds the same
-        Stage-5 output), k range, the ordering of the distances the paper reports and its values, the plot settings, git
-        commit and library versions
+    tests/fixtures/fig6/fig6_reference.png
+        the notebook plot (Bures-Wasserstein distance against k)
+    tests/fixtures/fig6/fixture_info.json
+        how it was made: the Stage-5 file it is drawn from (name and md5), the images
+        per configuration and the estimator settings of that file (from the Fig. 4D-E
+        fixture, which holds the same Stage-5 output), k range, the ordering of the
+        distances the paper reports and its values, the plot settings, git commit and
+        library versions
 
-The Stage-5 output is the one of the Fig. 4D-E fixture (it contains the alignment and the Bures-Wasserstein distance),
-tests/fixtures/fig4_de/cross_encoder_metrics.json: regenerate that first when the per-image files change
-(make_fig4_de_fixtures.py). Usage, from the repository root:
+The Stage-5 output is the one of the Fig. 4D-E fixture (it contains the alignment and
+the Bures-Wasserstein distance), tests/fixtures/fig4_de/cross_encoder_metrics.json:
+regenerate that first when the per-image files change (make_fig4_de_fixtures.py). Usage,
+from the repository root:
 
     python tests/fixtures/make_fig6_fixtures.py
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -35,6 +40,7 @@ def main():
     import matplotlib
     import numpy
     import torch
+
     matplotlib.use("Agg")
 
     metrics = bw.load_metrics(SOURCE)
@@ -44,15 +50,38 @@ def main():
     fig.savefig(OUT / "fig6_reference.png", dpi=100, bbox_inches="tight")
     source_info = json.loads(SOURCE_INFO.read_text())
     info = {
-        "source": {"file": "fixtures/fig4_de/cross_encoder_metrics.json", "md5": hashlib.md5(SOURCE.read_bytes()).hexdigest()},
-        "images_per_config": {k: len(v["images"]) for k, v in source_info["per_config"].items()},
+        "source": {
+            "file": "fixtures/fig4_de/cross_encoder_metrics.json",
+            "md5": hashlib.md5(SOURCE.read_bytes()).hexdigest(),
+        },
+        "images_per_config": {
+            k: len(v["images"]) for k, v in source_info["per_config"].items()
+        },
         "estimator": source_info["estimator"],
         "k_max": source_info["k_max"],
         "ordering": bw.ordering(metrics),
-        "plot": {"function": "figures.fig_app_bw.make_figure", "figsize": figsize, "dpi": 100, "bbox_inches": "tight"},
-        "git_commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=bw.REPO, capture_output=True, text=True).stdout.strip(),
-        "git_dirty": bool(subprocess.run(["git", "status", "--porcelain"], cwd=bw.REPO, capture_output=True, text=True).stdout.strip()),
-        "versions": {"torch": torch.__version__, "numpy": numpy.__version__, "matplotlib": matplotlib.__version__},
+        "plot": {
+            "function": "figures.fig_app_bw.make_figure",
+            "figsize": figsize,
+            "dpi": 100,
+            "bbox_inches": "tight",
+        },
+        "git_commit": subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=bw.REPO, capture_output=True, text=True
+        ).stdout.strip(),
+        "git_dirty": bool(
+            subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=bw.REPO,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+        ),
+        "versions": {
+            "torch": torch.__version__,
+            "numpy": numpy.__version__,
+            "matplotlib": matplotlib.__version__,
+        },
     }
     (OUT / "fixture_info.json").write_text(json.dumps(info, indent=2) + "\n")
     print("wrote", OUT)
