@@ -29,6 +29,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))               # tests (nb_helpers)
 
 from nb_helpers import fig5_records  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))      # the figures/ folder
+from figures.fig5 import make_figure  # noqa: E402
 from multigeom.pipeline import metric_field_job as lmf  # noqa: E402
 from multigeom.config import load_config  # noqa: E402
 
@@ -73,7 +75,7 @@ def main(argv=None):
     OUT.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(OUT / "metric_field.npz", **arrays)
 
-    fig = lmf.plot_metric_field(fig5_records(OUT / "metric_field.npz"))
+    fig = make_figure(fig5_records(OUT / "metric_field.npz"))
     figsize = [float(v) for v in fig.get_size_inches()]
     fig.savefig(OUT / "fig5_reference.png", dpi=100, bbox_inches="tight")      # tight: the legend sits outside the axes
 
@@ -95,7 +97,7 @@ def main(argv=None):
         "estimator": {"n_samples": int(est.monte_carlo.n_samples), "sigma": float(est.monte_carlo.observation_noise_sigma),
                       "seed": int(est.seed), "top_k": int(est.top_k)},
         "checkpoints": checkpoints,
-        "plot": {"function": "multigeom.viz.fig5.make_figure", "figsize": figsize, "dpi": 100, "bbox_inches": "tight", "fill": 0.9},
+        "plot": {"function": "figures.fig5.make_figure", "figsize": figsize, "dpi": 100, "bbox_inches": "tight", "fill": 0.9},
         "git_commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=lmf.REPO, capture_output=True, text=True).stdout.strip(),
         "git_dirty": bool(subprocess.run(["git", "status", "--porcelain"], cwd=lmf.REPO, capture_output=True, text=True).stdout.strip()),
         "versions": {"torch": torch.__version__, "numpy": numpy.__version__, "matplotlib": matplotlib.__version__},

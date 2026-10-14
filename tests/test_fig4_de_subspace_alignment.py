@@ -13,7 +13,7 @@ tests/fixtures/make_fig4_de_fixtures.py):
 
 The tests check that fixture_info.json agrees with the stored data and with the settings in the repository
 (configs/estimator.yaml, the plot defaults), so a change of any of them fails here and says to regenerate.
-They also run the notebook's plotting function, multigeom.viz.plot_alignment, on the stored
+They also run the notebook's plotting function, figures.alignment.plot_alignment, on the stored
 Stage-5 output and compares the picture with the reference. It runs on CPU in CI. It checks the
 plotting step only; the computation of the eigenvectors (the G(x) estimation) is covered by the Fig. 3 / Fig. 4B-C
 tests and, for the splitting of the work, by tests/unit/test_subspace_alignment.py.
@@ -35,7 +35,7 @@ import numpy as np  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from nb_helpers import BAD_PIXEL_FRACTION, MEAN_ABS_TOL, image_difference  # noqa: E402
-from multigeom import viz  # noqa: E402
+from figures.alignment import plot_alignment  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "fig4_de"
 METRICS = FIXTURES / "cross_encoder_metrics.json"
@@ -44,7 +44,7 @@ REFERENCE_PNG = FIXTURES / "fig4_de_reference.png"
 
 
 def render(metrics, path: Path) -> None:
-    fig = viz.plot_alignment(metrics)
+    fig = plot_alignment(metrics)
     fig.savefig(path, dpi=100)
     plt.close(fig)
 
@@ -126,4 +126,4 @@ def test_fixture_parameters_match_the_current_settings_of_the_repository():
         "sigma": float(mc.observation_noise_sigma), "seed": int(est.seed), "top_k": int(est.top_k),
     }, "configs/estimator.yaml changed since the fixture was made: regenerate it"
     assert all(c["sigma"] == i["estimator"]["sigma"] for c in i["per_config"].values())
-    assert i["plot"]["figsize"] == list(inspect.signature(viz.plot_alignment).parameters["figsize"].default)
+    assert i["plot"]["figsize"] == list(inspect.signature(plot_alignment).parameters["figsize"].default)

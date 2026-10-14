@@ -81,7 +81,7 @@ are read from this folder whatever the notebook's own location.
 
 Notebook 0 needs neither. Notebooks 1 and 2 need TinyImageNet only. The others read:
 
-- `data/`: TVSD, THINGS images and TinyImageNet; `data/README.md` describes each and the expected layout. The functions `multigeom.data.download_tvsd`, `download_things_images` and
+- `data/`: TVSD, THINGS images and TinyImageNet; `data/README.md` describes each and the expected layout. The functions `multigeom.datasets.download_tvsd`, `download_things_images` and
   `download_tinyimagenet` fetch them (the notebooks call them); notebook 3 describes the layout.
   Set `NEURIPS_DATA_DIR=/path/to/storage` to read the datasets from elsewhere.
 - `runs/`: the trained encoders and diffusion models.

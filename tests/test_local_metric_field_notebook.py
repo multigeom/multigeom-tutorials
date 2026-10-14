@@ -62,14 +62,14 @@ def test_parameter_cell_gives_the_documented_job_and_its_cost(at_repo_root, caps
 
 def test_plot_cell_draws_the_reference_figure_from_stored_results(at_repo_root, tmp_path, monkeypatch):
     ns = run_cells({}, SETUP3, notebook=NOTEBOOK3)                       # parameter cell
-    lmf, sa, job = ns["lmf"], ns["viz"], ns["job"]
+    lmf, job = ns["lmf"], ns["job"]
     folder = tmp_path / "runs" / "metric_field" / f"img{job.img_idx:04d}"
     folder.mkdir(parents=True)
     for (metric, area), rec in fig5_records().items():
         torch.save(rec, folder / f"{metric}_{area}.pt")
     monkeypatch.setattr(lmf, "REPO", tmp_path)                           # the notebook looks for results under REPO/runs
     drawn = {}
-    monkeypatch.setattr(sa, "show_figure", lambda fig, dpi=110: drawn.setdefault("fig", fig))
+    monkeypatch.setitem(ns, "show_figure", lambda fig, dpi=110: drawn.setdefault("fig", fig))
     run_cells(ns, PLOT3, notebook=NOTEBOOK3)
     assert "fig" in drawn, "the plot cell did not draw a figure"
     drawn["fig"].savefig(tmp_path / "plot.png", dpi=100, bbox_inches="tight")
@@ -112,7 +112,7 @@ def test_notebook_runs_a_small_job_end_to_end(at_repo_root, tmp_path, monkeypatc
                  "RESTART": "False"}
     monkeypatch.chdir(scratch)
     ns = run_cells({}, SETUP3, notebook=NOTEBOOK3, overrides=overrides)
-    lmf, sa = ns["lmf"], ns["viz"]
+    lmf = ns["lmf"]
     monkeypatch.setattr(lmf, "REPO", scratch)                             # the process started below gets it from MULTIGEOM_REPO
     assert ns["job"].grid_size == 3 and ns["job"].metrics == ("J",)
 
@@ -128,7 +128,7 @@ def test_notebook_runs_a_small_job_end_to_end(at_repo_root, tmp_path, monkeypatc
         np.testing.assert_allclose(M, np.swapaxes(M, -1, -2), rtol=1e-6, atol=1e-9)
         assert np.linalg.eigvalsh(M).min() > -1e-9 * max(1.0, np.abs(M).max())
         drawn = {}
-        monkeypatch.setattr(sa, "show_figure", lambda fig, dpi=110: drawn.setdefault("fig", fig))
+        monkeypatch.setitem(ns, "show_figure", lambda fig, dpi=110: drawn.setdefault("fig", fig))
         run_cells(ns, PLOT3, notebook=NOTEBOOK3)
         assert "fig" in drawn
     finally:

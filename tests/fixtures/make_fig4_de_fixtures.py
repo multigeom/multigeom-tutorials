@@ -76,7 +76,7 @@ def main():
                       "sigma": float(est.monte_carlo.observation_noise_sigma), "seed": int(est.seed),
                       "top_k": int(est.top_k)},
         "k_max": int(max(max(v["k"]) for v in metrics["pairs"].values())),
-        "plot": {"function": "multigeom.viz.plot_alignment", "figsize": figsize, "dpi": 100},
+        "plot": {"function": "figures.alignment.plot_alignment", "figsize": figsize, "dpi": 100},
         "git_commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=sa.REPO, capture_output=True, text=True).stdout.strip(),
         "git_dirty": bool(subprocess.run(["git", "status", "--porcelain"], cwd=sa.REPO, capture_output=True, text=True).stdout.strip()),
         "versions": {"torch": torch.__version__, "numpy": numpy.__version__, "matplotlib": matplotlib.__version__},

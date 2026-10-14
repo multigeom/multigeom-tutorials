@@ -49,7 +49,7 @@ def main():
         "estimator": source_info["estimator"],
         "k_max": source_info["k_max"],
         "ordering": bw.ordering(metrics),
-        "plot": {"function": "multigeom.viz.fig_app_bw.make_figure", "figsize": figsize, "dpi": 100, "bbox_inches": "tight"},
+        "plot": {"function": "figures.fig_app_bw.make_figure", "figsize": figsize, "dpi": 100, "bbox_inches": "tight"},
         "git_commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=bw.REPO, capture_output=True, text=True).stdout.strip(),
         "git_dirty": bool(subprocess.run(["git", "status", "--porcelain"], cwd=bw.REPO, capture_output=True, text=True).stdout.strip()),
         "versions": {"torch": torch.__version__, "numpy": numpy.__version__, "matplotlib": matplotlib.__version__},

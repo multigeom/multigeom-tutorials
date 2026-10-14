@@ -38,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from nb_helpers import BAD_PIXEL_FRACTION, FIG5_FIXTURES, MEAN_ABS_TOL, fig5_records, image_difference  # noqa: E402
 from multigeom.pipeline import metric_field_job as lmf  # noqa: E402
+from figures.fig5 import make_figure  # noqa: E402
 
 FIXTURES = FIG5_FIXTURES
 NPZ = FIXTURES / "metric_field.npz"
@@ -47,7 +48,7 @@ ENCODERS = ("inception", "resnet50")
 
 
 def render(records, path: Path) -> None:
-    fig = lmf.plot_metric_field(records)
+    fig = make_figure(records)
     fig.savefig(path, dpi=100, bbox_inches="tight")      # tight: the legend sits outside the axes
     plt.close(fig)
 
@@ -105,7 +106,7 @@ def test_fixture_parameters_match_the_current_settings_of_the_repository():
     assert i["job"]["img_idx"] == default.img_idx == lmf.DEFAULT_IMG_IDX, "the default reference image changed: regenerate the fixture"
     assert i["job"]["steps"] == {m: list(v) for m, v in default.steps.items()}, \
         "the default step rules of the job changed since the fixture was made: regenerate it"
-    from multigeom.viz.fig5 import make_figure
+    from figures.fig5 import make_figure
     assert i["plot"]["fill"] == inspect.signature(make_figure).parameters["fill"].default
 
 
