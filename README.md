@@ -25,13 +25,13 @@ large and unreadable in diffs, do not clutter the package history.
 
 | Notebook | What it does | Needs | Time |
 |---|---|---|---|
-| `3_leading_eigenvectors_of_G` | Leading eigenvectors of G(x) and J(x) for an example image (paper Fig. 3D-F, 4B-C). | data, checkpoints, GPU | about 2 min |
-| `4_subspace_alignment` | G(x) and J(x) for many images, split over local GPUs or Modal, then the subspace alignment (Fig. 4D-E). | data, checkpoints, GPU | 1 min to hours |
-| `5_local_metric_field` | Local metric field around a reference image (Fig. 5). | data, checkpoints, GPU | about 25 min |
+| `3_leading_eigenvectors_of_G` | Leading eigenvectors of G(x) and J(x) for an example image (paper Fig. 3D-F, 4B-C). | TinyImageNet, checkpoints, GPU | about 2 min |
+| `4_subspace_alignment` | G(x) and J(x) for many images, split over local GPUs or Modal, then the subspace alignment (Fig. 4D-E). | TinyImageNet, checkpoints, GPU | 1 min to hours |
+| `5_local_metric_field` | Local metric field around a reference image (Fig. 5). | TinyImageNet, checkpoints, GPU | about 25 min |
 | `6_bures_wasserstein` | Bures-Wasserstein distance between geometries (Fig. 6). | the outputs of notebook 4 | minutes, CPU |
 
-Start with notebook 0. Notebooks 1 and 2 need only TinyImageNet. Notebooks 3 to 6 reproduce the paper's analyses and need all the
-data and checkpoints below.
+Start with notebook 0. Notebooks 1 and 2 need only TinyImageNet. Notebooks 3 to 6 reproduce the paper's analyses and need the
+trained checkpoints and TinyImageNet below (the notebooks download them).
 
 ## Installation
 
@@ -79,16 +79,15 @@ are read from this folder whatever the notebook's own location.
 
 ## Data and checkpoints (notebooks 1 to 6)
 
-Notebook 0 needs neither. Notebooks 1 and 2 need TinyImageNet only. The others read:
+Notebook 0 needs neither. Notebooks 1 to 5 need TinyImageNet, and notebooks 3 to 5 the
+trained checkpoints. The notebooks download both:
 
-- `data/`: TVSD, THINGS images and TinyImageNet; `data/README.md` describes each and the expected layout. The scripts `notebooks/download_tsvd_data.sh`,
-  `notebooks/download_things_images.sh` and `notebooks/download_tiny_imagenet.sh` fetch them; notebook 3 describes the layout.
+- `data/`: TinyImageNet, with `multigeom.datasets.download_tinyimagenet()`.
   Set `NEURIPS_DATA_DIR=/path/to/storage` to read the datasets from elsewhere.
-- `runs/`: the trained encoders and diffusion models.
-
-  ```bash
-  huggingface-cli download steevelaquitaine/multigeom --local-dir runs
-  ```
+  TVSD and the THINGS images (`download_tvsd`, `download_things_images`) are only needed
+  to refit the encoders; `data/README.md` describes them.
+- `runs/`: the trained encoders and diffusion models, with
+  `huggingface_hub.snapshot_download(repo_id="steevelaquitaine/multigeom", local_dir="runs")`.
 
 Both folders are ignored by git (except `data/README.md`). If you already have them elsewhere, link them (`ln -s <path>/runs runs`).
 

@@ -1,8 +1,10 @@
 """
-Integration tests of the getting-started notebooks 1 and 2 (build your own encoder on synthetic neural data; train the
-diffusion model and compute G(x)): their cells run end to end, on CPU, on a tiny fake TinyImageNet and with small sizes.
-No dataset, checkpoint or network is needed, so these tests run on GitHub.
+Integration tests of the getting-started notebooks 1 and 2 (build your own encoder on
+synthetic neural data; train the diffusion model and compute G(x)): their cells run end
+to end, on CPU, on a tiny fake TinyImageNet and with small sizes. No dataset, checkpoint
+or network is needed, so these tests run on GitHub.
 """
+
 from __future__ import annotations
 
 import sys
@@ -25,7 +27,10 @@ NB2 = REPO / "notebooks" / "2_compute_g.ipynb"
 
 @pytest.fixture(scope="module")
 def tiny_data(tmp_path_factory):
-    """A fake TinyImageNet: 200 classes x 3 training images, 100 validation images (smooth random pictures)."""
+    """
+    A fake TinyImageNet: 200 classes x 3 training images, 100 validation images (smooth
+    random pictures).
+    """
     root = tmp_path_factory.mktemp("data")
     ti = root / "tiny-imagenet-200"
     ti.mkdir()
@@ -54,8 +59,12 @@ def tiny_data(tmp_path_factory):
 
 
 def _in(tiny_data, notebook, overrides):
-    """Run all the cells of `notebook` at the repository root, on the fake dataset; returns its namespace."""
+    """
+    Run all the cells of `notebook` at the repository root, on the fake dataset; returns
+    its namespace.
+    """
     import os
+
     old = os.environ.get("NEURIPS_DATA_DIR")
     os.environ["NEURIPS_DATA_DIR"] = str(tiny_data)
     cwd = os.getcwd()
@@ -71,8 +80,12 @@ def _in(tiny_data, notebook, overrides):
 
 
 def _run(notebook, tiny_data, replacements):
-    """Run all the cells of `notebook` on the fake TinyImageNet, from the repository root, restoring the environment after."""
+    """
+    Run all the cells of `notebook` on the fake TinyImageNet, from the repository root,
+    restoring the environment after.
+    """
     import os
+
     old = os.environ.get("NEURIPS_DATA_DIR")
     os.environ["NEURIPS_DATA_DIR"] = str(tiny_data)
     cwd = os.getcwd()
@@ -90,46 +103,71 @@ def _run(notebook, tiny_data, replacements):
 @pytest.fixture(scope="module")
 def notebook1(tiny_data, tmp_path_factory):
     out = tmp_path_factory.mktemp("runs") / "getting_started"
-    ns = _run(NB1, tiny_data, {
-        'if device == "cpu":': "if False:",                                   # keep the small sizes below on a CPU too
-        "N_TRAIN, N_TEST = 6000, 2000": "N_TRAIN, N_TEST = 60, 40",
-        "IMAGES_PER_CLASS = 200": "IMAGES_PER_CLASS = 2",
-        "PRETRAIN_EPOCHS = 15": "PRETRAIN_EPOCHS = 1",
-        "FIT_EPOCHS = 100": "FIT_EPOCHS = 3",
-        'SAVE_DIR = Path("runs/getting_started")': f"SAVE_DIR = Path({str(out)!r})",
-    })
+    ns = _run(
+        NB1,
+        tiny_data,
+        {
+            ('if device == "cpu":'): (
+                "if False:"
+            ),  # keep the small sizes below on a CPU too
+            "N_TRAIN, N_TEST = 6000, 2000": "N_TRAIN, N_TEST = 60, 40",
+            "IMAGES_PER_CLASS = 200": "IMAGES_PER_CLASS = 2",
+            "PRETRAIN_EPOCHS = 15": "PRETRAIN_EPOCHS = 1",
+            "FIT_EPOCHS = 100": "FIT_EPOCHS = 3",
+            'SAVE_DIR = Path("runs/getting_started")': f"SAVE_DIR = Path({str(out)!r})",
+        },
+    )
     return ns, out
 
 
 def test_notebook_1_builds_fits_saves_and_reloads_an_encoder(notebook1):
     ns, out = notebook1
     assert (out / "encoder.pt").exists() and (out / "teacher.pt").exists()
-    assert ns["same"] is True                                            # the reloaded encoder predicts the same
+    assert ns["same"] is True  # the reloaded encoder predicts the same
     assert ns["encoder"].n_neurons == 50 and ns["reloaded"].n_neurons == 50
     assert ns["reloaded"].metadata["noise_sigma"] == 0.22
-    assert set(ns["fits"]) == {"linear", "gaussian", "factorized", "gaussian, untrained backbone"}
+    assert set(ns["fits"]) == {
+        "linear",
+        "gaussian",
+        "factorized",
+        "gaussian, untrained backbone",
+    }
 
 
-def test_notebook_1_checks_the_contract_and_compares_the_fisher_information_with_the_teacher(notebook1):
+def test_notebook_1_checks_the_contract_and_compares_fisher_with_the_teacher(notebook1):
     ns, _ = notebook1
-    assert ns["report"].n_neurons == 50          # (a barely trained encoder may get the R9 scale warning: only the contract matters here)
-    assert ns["j_fit"].eigenvectors.shape == ns["j_true"].eigenvectors.shape == (20, 4096)
-    assert set(ns["scores"]) == {1, 5, 10} and all(len(v) == 20 and all(0 <= s <= 1 for s in v) for v in ns["scores"].values())
+    # a barely trained encoder may get the R9 scale warning: only the contract matters
+    assert ns["report"].n_neurons == 50
+    assert (
+        ns["j_fit"].eigenvectors.shape == ns["j_true"].eigenvectors.shape == (20, 4096)
+    )
+    assert set(ns["scores"]) == {1, 5, 10} and all(
+        len(v) == 20 and all(0 <= s <= 1 for s in v) for v in ns["scores"].values()
+    )
 
 
 def test_notebook_2_trains_a_diffusion_model_and_computes_g(notebook1, tiny_data):
     pytest.importorskip("diffusers")
     _, out = notebook1
-    ns = _run(NB2, tiny_data, {
-        'if device == "cpu":': "if False:",
-        "IMAGES_PER_CLASS = 100": "IMAGES_PER_CLASS = 1",
-        "EPOCHS = 5": "EPOCHS = 1",
-        "N_MC = 50": "N_MC = 25",
-        "TIMESTEP_STEP = 80": "TIMESTEP_STEP = 320",
-        "N_COMPARE = 10": "N_COMPARE = 2",
-        'SAVE_DIR = Path("runs/getting_started")': f"SAVE_DIR = Path({str(out)!r})",
-    })
-    assert (out / "diffusion" / "final_model.pt").exists() and len(ns["history"]["loss"]) == 1
+    ns = _run(
+        NB2,
+        tiny_data,
+        {
+            'if device == "cpu":': "if False:",
+            "IMAGES_PER_CLASS = 100": "IMAGES_PER_CLASS = 1",
+            "EPOCHS = 5": "EPOCHS = 1",
+            "N_MC = 50": "N_MC = 25",
+            "TIMESTEP_STEP = 80": "TIMESTEP_STEP = 320",
+            "N_COMPARE = 10": "N_COMPARE = 2",
+            'SAVE_DIR = Path("runs/getting_started")': f"SAVE_DIR = Path({str(out)!r})",
+        },
+    )
+    assert (out / "diffusion" / "final_model.pt").exists() and len(
+        ns["history"]["loss"]
+    ) == 1
     assert ns["responses"].shape == (200, 50)
-    assert len(ns["G"]) == len(ns["J"]) == 2 and ns["G"][0].eigenvectors.shape == (20, 4096)
+    assert len(ns["G"]) == len(ns["J"]) == 2 and ns["G"][0].eigenvectors.shape == (
+        20,
+        4096,
+    )
     assert torch.isfinite(ns["G"][0].eigenvalues).all()
