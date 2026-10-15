@@ -166,6 +166,33 @@ for n, ax in enumerate(axes[1]):
 - The tests in `tests/` find cells by a unique line (the markers in `tests/nb_helpers.py`, such as `lmf.launch(job)` or `ns["show_figure"]`). If you change one of these lines, change the marker too, and run the tests.
 - A notebook that the user has open may have unsaved or uncommitted changes. Look at `git status` first, and do not overwrite or commit changes you did not make.
 - `multigeom/docs/source/demo_notebooks/` holds copies of the notebooks; refresh them with the documentation sync and do not edit them by hand.
+- **Check that every name is defined by an earlier cell**, in the order of the notebook (moving a line between cells easily leaves an import behind; this is how a `snapshot_download` that was never imported reached a reader). The check below prints each name that is used before it is defined; it must print nothing. Then run the setup, import and download cells of the notebook, with any multi-gigabyte download replaced by a `print`.
+
+```python
+import ast, builtins, glob, json, sys
+
+for f in sorted(glob.glob(sys.argv[1] if len(sys.argv) > 1 else "notebooks/*.ipynb")):
+    nb = json.load(open(f)); defined = set(dir(builtins)) | {"get_ipython"}
+    for i, c in enumerate(nb["cells"]):
+        if c["cell_type"] != "code":
+            continue
+        lines = "".join(c["source"]).splitlines()
+        code = "\n".join((l[: len(l) - len(l.lstrip())] + "pass") if l.lstrip().startswith(("%", "!")) else l for l in lines)
+        tree = ast.parse(code)
+        inside = {id(m) for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.Lambda)) for m in ast.walk(n) if m is not n}   # run later, when called
+        used = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load) and id(n) not in inside}
+        stored = set()
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Name) and isinstance(n.ctx, (ast.Store, ast.Del)): stored.add(n.id)
+            elif isinstance(n, (ast.FunctionDef, ast.ClassDef)): stored.add(n.name)
+            elif isinstance(n, (ast.Import, ast.ImportFrom)): stored |= {(a.asname or a.name).split(".")[0] for a in n.names}
+            elif isinstance(n, ast.arg): stored.add(n.arg)
+            elif isinstance(n, ast.ExceptHandler) and n.name: stored.add(n.name)
+        for name in sorted(used - defined - stored):
+            print(f"{f.split('/')[-1]} cell {i}: {name} is not defined by this cell or an earlier one")
+        defined |= stored
+```
+
 - Run `ruff format --check .` and `ruff check .` from the repository root, then the tests (`CUDA_VISIBLE_DEVICES= python -m pytest -q tests`, in the `tutorials-env` environment; the GPU of the shared machine is often full) and report what passed, what failed and what you could not run.
 
 ## 5. Names
