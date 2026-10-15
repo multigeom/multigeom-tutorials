@@ -1,4 +1,8 @@
-"""Helpers to run cells of the tutorial notebooks inside the tests (notebook 3 by default, notebook 5 for Fig. 5, notebook 6 for Fig. 6)."""
+"""
+Helpers to run cells of the tutorial notebooks inside the tests (notebook 3 by default,
+notebook 5 for Fig. 5, notebook 6 for Fig. 6).
+"""
+
 from __future__ import annotations
 
 import json
@@ -9,18 +13,20 @@ NOTEBOOK = REPO / "notebooks" / "3_leading_eigenvectors_of_G.ipynb"
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "fig3"
 
 # A unique line of each notebook code cell used by the tests. The plot cells rely on the
-# notebook's setup cell for their imports (plt, panel_rf, ...), supplied by `render_plot_cell`.
+# notebook's setup cell for their imports (plt, panel_rf, ...), supplied by
+# `render_plot_cell`.
 SETUP = "# import built-in packages"
+FUNCTIONS = "def load_models("
 LOAD_MODELS = "alphas_cumprod = scheduler.alphas_cumprod"
 COMPUTE = "ckpts, records = {}, {}"
-PLOT_FIG3 = "panel_rf(ax_d"
-PLOT_FIG4 = "panel_eigvecs_fig4(fig, spec[0]"
+PLOT_FIG3 = "panel_rf("
+PLOT_FIG4 = "panel_eigvecs_fig4("
 
 AREAS = ("V1", "V4")
 ENCODERS = ("inception", "resnet50")
-N_FIG3 = 4          # eigenvectors of the Fig. 3 encoder stored per metric and area
-N_FIG4_REF = 4      # ... of the reference encoder (inception) for Fig. 4B-C
-N_FIG4_POOL = 30    # ... of the other encoders: the notebook searches their first 30 for the best match
+N_FIG3 = 4  # eigenvectors of the Fig. 3 encoder stored per metric and area
+N_FIG4_REF = 4  # ... of the reference encoder (inception) for Fig. 4B-C
+N_FIG4_POOL = 30  # ... of the other encoders: the notebook searches their first 30
 
 
 NOTEBOOK3 = REPO / "notebooks" / "5_local_metric_field.ipynb"
@@ -28,7 +34,7 @@ NOTEBOOK3 = REPO / "notebooks" / "5_local_metric_field.ipynb"
 SETUP3 = "from multigeom.pipeline import metric_field_job as lmf"
 LAUNCH3 = "lmf.launch(job)"
 WAIT3 = "lmf.wait(job"
-PLOT3 = "lmf.plot_metric_field(job)"
+PLOT3 = "show_figure(make_figure(lmf.load_records(job)))"
 
 
 NOTEBOOK4 = REPO / "notebooks" / "6_bures_wasserstein.ipynb"
@@ -36,7 +42,7 @@ NOTEBOOK4 = REPO / "notebooks" / "6_bures_wasserstein.ipynb"
 SETUP4 = "from multigeom.pipeline import alignment as bw"
 COMPUTE4 = "bw.compute_metrics(RUNS_DIR"
 ORDER4 = "bw.print_ordering(metrics)"
-PLOT4 = "viz.plot_bures_wasserstein(metrics)"
+PLOT4 = "show_figure(plot_bures_wasserstein(metrics))"
 
 
 def notebook_cell(marker: str, notebook: Path | None = None) -> str:
@@ -48,20 +54,33 @@ def notebook_cell(marker: str, notebook: Path | None = None) -> str:
             continue
         src = "".join(cell["source"])
         if marker in src:
-            return "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("%%"))
+            return "\n".join(
+                l for l in src.splitlines() if not l.lstrip().startswith("%%")
+            )
     raise KeyError(f"no code cell containing {marker!r} in {notebook}")
 
 
-def run_cells(namespace: dict, *markers: str, notebook: Path | None = None, overrides: dict | None = None) -> dict:
+def run_cells(
+    namespace: dict,
+    *markers: str,
+    notebook: Path | None = None,
+    overrides: dict | None = None,
+) -> dict:
     """
-    Execute the notebook cells containing `markers`, in order, in `namespace`. `overrides` replaces the value of
-    top-level assignments `NAME = value` in the cells (for example {"GRID_SIZE": "3"}), to run a smaller job.
+    Execute the notebook cells containing `markers`, in order, in `namespace`.
+    `overrides` replaces the value of top-level assignments `NAME = value` in the cells
+    (for example {"GRID_SIZE": "3"}), to run a smaller job.
     """
     for marker in markers:
         source = notebook_cell(marker, notebook)
-        # The notebooks reload the modules they use ("importlib.reload(...)") to pick up edits; in a test session that would
-        # redefine classes under the feet of the other tests, so those lines are dropped.
-        source = "\n".join(l for l in source.splitlines() if not l.lstrip().startswith("importlib.reload("))
+        # The notebooks reload the modules they use ("importlib.reload(...)") to pick up
+        # edits; in a test session that would redefine classes under the feet of the
+        # other tests, so those lines are dropped.
+        source = "\n".join(
+            l
+            for l in source.splitlines()
+            if not l.lstrip().startswith("importlib.reload(")
+        )
         for name, value in (overrides or {}).items():
             source = override_assignment(source, name, value)
         exec(compile(source, f"<notebook cell: {marker}>", "exec"), namespace)
@@ -69,17 +88,25 @@ def run_cells(namespace: dict, *markers: str, notebook: Path | None = None, over
 
 
 def override_assignment(source: str, name: str, value: str) -> str:
-    """Replace the right-hand side of the top-level line `name = ...` (comment kept) by `value`; unchanged if absent."""
+    """
+    Replace the right-hand side of the top-level line `name = ...` (comment kept) by
+    `value`; unchanged if absent.
+    """
     import re
-    return re.sub(rf"^({re.escape(name)}\s*=\s*)(.*?)(\s*#.*)?$", lambda m: f"{m.group(1)}{value}{m.group(3) or ''}",
-                  source, flags=re.M)
+
+    return re.sub(
+        rf"^({re.escape(name)}\s*=\s*)(.*?)(\s*#.*)?$",
+        lambda m: f"{m.group(1)}{value}{m.group(3) or ''}",
+        source,
+        flags=re.M,
+    )
 
 
 def fixture_inputs() -> tuple[dict, dict]:
     """
-    (ckpts, records), keyed by (encoder, area) like the notebook's compute cell, from the
-    stored fixtures. ckpts hold the readout parameters of the Fig. 3 encoder (inception);
-    records hold the image and the leading eigenvectors of G and J.
+    (ckpts, records), keyed by (encoder, area) like the notebook's compute cell, from
+    the stored fixtures. ckpts hold the readout parameters of the Fig. 3 encoder
+    (inception); records hold the image and the leading eigenvectors of G and J.
     """
     import numpy as np
     import torch
@@ -89,58 +116,85 @@ def fixture_inputs() -> tuple[dict, dict]:
     image = torch.from_numpy(d3["image"]).reshape(1, 1, 64, 64)
     ckpts, records = {}, {}
     for area in AREAS:
-        ckpts[("inception", area)] = {"model_state_dict": {
-            "readout.mu": torch.from_numpy(d3[f"{area}_mu"]),
-            "readout.sigma": torch.from_numpy(d3[f"{area}_sigma"]),
-            "readout.grid_x": torch.from_numpy(d3[f"{area}_grid_x"]),
-        }}
+        ckpts[("inception", area)] = {
+            "model_state_dict": {
+                "readout.mu": torch.from_numpy(d3[f"{area}_mu"]),
+                "readout.sigma": torch.from_numpy(d3[f"{area}_sigma"]),
+                "readout.grid_x": torch.from_numpy(d3[f"{area}_grid_x"]),
+            }
+        }
         for enc in ENCODERS:
             records[(enc, area)] = {
                 "image": image,
                 "G_eigenvectors": torch.from_numpy(d4[f"{enc}_{area}_G"]),
                 "J_eigenvectors": torch.from_numpy(d4[f"{enc}_{area}_J"]),
             }
-    # Fig. 3 uses the first N_FIG3 eigenvectors; they are the same numbers as in fig3_def_data.npz
+    # Fig. 3 uses the first N_FIG3 eigenvectors; they are the same numbers as in
+    # fig3_def_data.npz
     for area in AREAS:
         for metric in ("G", "J"):
-            np.testing.assert_array_equal(records[("inception", area)][f"{metric}_eigenvectors"][:N_FIG3].numpy(),
-                                          d3[f"{area}_{metric}"])
+            np.testing.assert_array_equal(
+                records[("inception", area)][f"{metric}_eigenvectors"][:N_FIG3].numpy(),
+                d3[f"{area}_{metric}"],
+            )
     return ckpts, records
 
 
-def render_plot_cell(ckpts: dict, records: dict, out_png: Path, which: str = "fig3") -> None:
-    """Run the notebook's plot cell for Fig. 3D-F ("fig3") or Fig. 4B-C ("fig4") and save the figure."""
+def render_plot_cell(
+    ckpts: dict, records: dict, out_png: Path, which: str = "fig3"
+) -> None:
+    """
+    Run the notebook's plot cell for Fig. 3D-F ("fig3") or Fig. 4B-C ("fig4") and save
+    the figure.
+    """
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    from multigeom.viz.style import panel_label
-    from multigeom.viz.fig3 import panel_eigvecs, panel_rf
-    from multigeom.viz.fig4 import panel_eigvecs as panel_eigvecs_fig4
+    from figures.style import panel_label
+    from figures.fig3 import panel_eigvecs, panel_rf
+    from figures.fig4 import panel_eigvecs as panel_eigvecs_fig4
 
     plt.close("all")
-    ns = run_cells({"plt": plt, "ckpts": ckpts, "records": records, "ENC": "inception", "AREAS": list(AREAS),
-                    "panel_rf": panel_rf, "panel_eigvecs": panel_eigvecs,
-                    "panel_eigvecs_fig4": panel_eigvecs_fig4, "panel_label": panel_label},
-                   {"fig3": PLOT_FIG3, "fig4": PLOT_FIG4}[which])
+    ns = run_cells(
+        {
+            "plt": plt,
+            "ckpts": ckpts,
+            "records": records,
+            "ENC": "inception",
+            "AREAS": list(AREAS),
+            "panel_rf": panel_rf,
+            "panel_eigvecs": panel_eigvecs,
+            "panel_eigvecs_fig4": panel_eigvecs_fig4,
+            "panel_label": panel_label,
+        },
+        {"fig3": PLOT_FIG3, "fig4": PLOT_FIG4}[which],
+    )
     ns["fig"].savefig(out_png, dpi=100)
     plt.close("all")
 
 
 # ── comparison of rendered plots ────────────────────────────────────────────
-REFERENCE_PNG = {"fig3": FIXTURES / "fig3_def_reference.png", "fig4": FIXTURES / "fig4_bc_reference.png"}
-MEAN_ABS_TOL = 1e-3          # mean |difference| over all pixels, in [0, 1]; text rendering may differ slightly
-BAD_PIXEL_FRACTION = 2e-3    # at most this fraction of pixels may differ by more than 0.1
+REFERENCE_PNG = {
+    "fig3": FIXTURES / "fig3_def_reference.png",
+    "fig4": FIXTURES / "fig4_bc_reference.png",
+}
+MEAN_ABS_TOL = 1e-3  # mean |difference| over all pixels, in [0, 1]; text may differ
+BAD_PIXEL_FRACTION = 2e-3  # at most this fraction of pixels may differ by more than 0.1
 
-# Recompute checks: (metric, number of leading eigenvectors compared, minimum |cosine| with the stored one).
-# Measured, CPU against the GPU fixture (inception): J |cos| >= 0.9958 for all four eigenvectors;
-# G |cos| = 0.96 (V1) and 0.98 (V4) for the leading one, but down to 0.30 for the 3rd (V4).
+# Recompute checks: (metric, number of leading eigenvectors compared, minimum |cosine|
+# with the stored one). Measured, CPU against the GPU fixture (inception): J |cos| >=
+# 0.9958 for all four eigenvectors; G |cos| = 0.96 (V1) and 0.98 (V4) for the leading
+# one, but down to 0.30 for the 3rd (V4).
 CHECKS = (("J", 4, 0.99), ("G", 1, 0.9))
 
 
 def image_difference(a, b) -> tuple[float, float]:
-    """(mean |a - b|, fraction of pixels with |a - b| > 0.1) of two images with values in [0, 1]."""
+    """
+    (mean |a - b|, fraction of pixels with |a - b| > 0.1) of two images with values in
+    [0, 1].
+    """
     import numpy as np
 
     assert a.shape == b.shape, f"image shapes differ: {a.shape} vs {b.shape}"
@@ -148,8 +202,13 @@ def image_difference(a, b) -> tuple[float, float]:
     return float(d.mean()), float((d > 0.1).mean())
 
 
-def plot_difference(which: str, ckpts: dict, records: dict, tmp_path: Path) -> tuple[float, float]:
-    """Render the notebook plot `which` from (ckpts, records) and compare it with its reference picture."""
+def plot_difference(
+    which: str, ckpts: dict, records: dict, tmp_path: Path
+) -> tuple[float, float]:
+    """
+    Render the notebook plot `which` from (ckpts, records) and compare it with its
+    reference picture.
+    """
     import matplotlib.image as mpimg
 
     out = tmp_path / f"{which}.png"
@@ -163,7 +222,10 @@ FIG5_ENCODERS = ("inception", "resnet50")
 
 
 def fig5_records(path: Path | None = None) -> dict:
-    """Stage-6-like records keyed by (metric, area), with the keys the Fig. 5 drawing needs, from the stored npz."""
+    """
+    Stage-6-like records keyed by (metric, area), with the keys the Fig. 5 drawing
+    needs, from the stored npz.
+    """
     import numpy as np
     import torch
 
@@ -174,17 +236,27 @@ def fig5_records(path: Path | None = None) -> dict:
             records[(metric, area)] = {
                 "grid_coefficients": torch.from_numpy(data["grid_coefficients"]),
                 "encoders": list(FIG5_ENCODERS),
-                "matrices_2x2": {enc: torch.from_numpy(data[f"{metric}_{area}_{enc}"]) for enc in FIG5_ENCODERS},
+                "matrices_2x2": {
+                    enc: torch.from_numpy(data[f"{metric}_{area}_{enc}"])
+                    for enc in FIG5_ENCODERS
+                },
                 "x0": torch.from_numpy(data["x0"]).reshape(1, 1, 64, 64),
             }
     return records
 
 
-def run_all_code_cells(namespace: dict, notebook: Path, overrides: dict | None = None, replacements: dict | None = None) -> dict:
+def run_all_code_cells(
+    namespace: dict,
+    notebook: Path,
+    overrides: dict | None = None,
+    replacements: dict | None = None,
+) -> dict:
     """
-    Run every code cell of `notebook`, in order, in `namespace` (with `overrides` as in `run_cells`). `replacements` maps text
-    to replace by other text in every cell (for settings that are not a plain `NAME = value` line, such as tuple
-    assignments). IPython magics are dropped: `%%time` lines, and `%pip install` lines (which are only reached on Google Colab).
+    Run every code cell of `notebook`, in order, in `namespace` (with `overrides` as in
+    `run_cells`). `replacements` maps text to replace by other text in every cell (for
+    settings that are not a plain `NAME = value` line, such as tuple assignments).
+    IPython magics are dropped: `%%time` lines, and `%pip install` lines (which are only
+    reached on Google Colab).
     """
     nb = json.loads(notebook.read_text())
     for i, cell in enumerate(nb["cells"]):
