@@ -44,7 +44,7 @@ A notebook is for someone who wants to see the package work in a few minutes. Ev
 
 **How to write**
 - **Introduce a code cell in one or two sentences**: what it does and why, nothing the code or its comments already say. Anything more (how it works, caveats, parameters, differences with the paper, a long table of options) goes in a `<details><summary>Details</summary> ... </details>` block at the end of the same cell, so it is there for the reader who wants it and hidden for the one who does not. A table is for what the reader must choose or compare, never for prose in disguise.
-- Do not write execution times in the text: every code cell shows its own time (section 3).
+- **End the introduction of every code cell with its execution time**, on its own line after a blank line: `time: <1 sec`, `time: 22 secs`, `time: 1 min`. It is the `%%time` wall time of the last run on the reference machine (a GPU for the notebooks that need one), rounded down to the second, `<1 sec` below one second, and in minutes from one minute. If the time depends on a setting, say so (`time: 12 secs with N_MC = 50 (about 1 min with 200)`). After running a notebook, `python scripts/add_cell_times.py` adds the lines from the times stored in its outputs and lists the cells that have none yet. Do not invent a time: leave the line out until the cell has been run.
 - Explain a concept once, where it is first used, in one or two sentences, with a link for more. Never re-define it later.
 - Active voice, short words, "you" for the reader. Define an acronym or a symbol the first time, or avoid it.
 - Prefer a short table or a figure to a paragraph. Do not use bold for emphasis in running text; use it for the few terms a reader must remember.
@@ -58,7 +58,7 @@ Run this on the notebook you changed, before and after (it needs no package beyo
 ```python
 import json, re, sys
 nb = json.load(open(sys.argv[1]))
-strip = lambda t: re.sub(r"(?m)^\|.*$|<details>.*?</details>|```.*?```|`[^`]*`|\$[^$]*\$|\[([^\]]*)\]\([^)]*\)|<[^>]+>|[#*|>_-]", " ", t, flags=re.S)
+strip = lambda t: re.sub(r"(?m)^\|.*$|^time: .*$|<details>.*?</details>|```.*?```|`[^`]*`|\$[^$]*\$|\[([^\]]*)\]\([^)]*\)|</?[a-zA-Z][^>\n]*>|[#*|>_-]", " ", t, flags=re.S)
 words = lambda t: re.findall(r"[A-Za-z][A-Za-z'-]+", strip(t))
 cells = [("".join(c["source"]), c["cell_type"]) for c in nb["cells"]]
 md = [t for t, k in cells if k == "markdown"]
@@ -78,6 +78,7 @@ def run(t):
 
 print("longest run of code lines without a blank line:", max(run(t) for t, k in cells if k == "code"))
 print("code lines over 88 characters:", sum(1 for t, k in cells if k == "code" for l in t.splitlines() if len(l) > 88))
+print("code cells whose introduction has no time line:", sum(1 for i in range(1, len(cells)) if cells[i][1] == "code" and cells[i - 1][1] == "markdown" and not re.search(r"(?m)^time: ", cells[i - 1][0])))
 print("code cells right after a code cell:", sum(1 for i in range(1, len(cells)) if cells[i][1] == cells[i - 1][1] == "code"))
 print("code cells without %%time:", sum(1 for t, k in cells if k == "code" and not t.lstrip().startswith("%%time")))
 sentences = [s for t in md for s in re.split(r"(?<=[.!?])\s+", strip(t)) if len(words(s)) > 2]
