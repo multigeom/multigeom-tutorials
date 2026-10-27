@@ -87,7 +87,7 @@ trained checkpoints. The notebooks download both:
   TVSD and the THINGS images (`download_tvsd`, `download_things_images`) are only needed
   to refit the encoders; `data/README.md` describes them.
 - `runs/`: the trained encoders and diffusion models, with
-  `huggingface_hub.snapshot_download(repo_id="steevelaquitaine/multigeom", local_dir="runs")`.
+  `huggingface_hub.snapshot_download(repo_id="steevelaquitaine/multigeom", local_dir="runs", ignore_patterns="archive/*")`.
 
 Both folders are ignored by git (except `data/README.md`). If you already have them elsewhere, link them (`ln -s <path>/runs runs`).
 
