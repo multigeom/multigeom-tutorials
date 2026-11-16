@@ -35,6 +35,7 @@ large and unreadable in diffs, do not clutter the package history.
 | Notebook | What it does | Needs | Time |
 |---|---|---|---|
 | `7_eigenvectors_of_G_per_scale` | Leading eigenvectors of M_t(x), the integrand of G(x), at each noise level, for the example images of the landing page (V1 and V4). | TinyImageNet, checkpoints, GPU, a `multigeom` with `compute_g_per_scale` | about 6 min |
+| `8_stimulus_features_per_scale` | Leading eigenvectors of the stimulus features M_t^env(x) = (1/t) E[Cov(X \| x_t)] at each noise level, from the unconditional model, next to those of M_t(x) of notebook 7, and how much they align. | TinyImageNet, checkpoints, GPU, a `multigeom` with `compute_env_per_scale` | about 20 min |
 
 Start with notebook 0. Notebooks 1 and 2 need only TinyImageNet. Notebooks 3 to 6 reproduce the paper's analyses and need the
 trained checkpoints and TinyImageNet below (the notebooks download them).

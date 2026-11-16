@@ -12,13 +12,17 @@ tests/fixtures/make_per_scale_fixtures.py):
         (float16) at each level
     per_scale_reference.png   the notebook's figure of the frog rendered from that data
 
-  - test_align_signs_*, test_compute_summary_* and test_*_plot_*
-      run on CPU in CI: execute the notebook's own functions and plot cells (on the
-      stored data) and compare the picture with the reference picture.
+  - test_*_plot_*
+      run on CPU in CI: execute the notebook's own plot cell (with the functions of
+      figures/per_scale.py, on the stored data) and compare the picture with the
+      reference picture.
   - test_recompute_*
-      run the notebook's setup, functions and compute cells on the real checkpoints,
-      for the frog, and compare with the stored data. Skipped unless runs/ and the
-      TinyImageNet data are present (not the case on GitHub).
+      run the notebook's setup and compute cells on the real checkpoints, for the
+      frog, and compare with the stored data. Skipped unless runs/ and the TinyImageNet
+      data are present (not the case on GitHub).
+
+The functions of figures/per_scale.py have their unit tests in
+tests/unit_tests/test_per_scale_helpers.py.
 """
 
 from __future__ import annotations
@@ -26,7 +30,6 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 import matplotlib
 
@@ -46,7 +49,6 @@ from nb_helpers import (  # noqa: E402
     PER_SCALE_FIXTURES,
     REPO,
     image_difference,
-    notebook7_functions,
     per_scale_inputs,
     render_per_scale_plot,
     run_notebook7_frog,
@@ -87,49 +89,6 @@ def test_fixture_is_wellformed():
         assert bool((record.eigenvalues[:, :-1] >= record.eigenvalues[:, 1:]).all())
         norms = record.eigenvectors.double().norm(dim=2).numpy()
         np.testing.assert_allclose(norms, 1.0, atol=1e-2)
-
-
-def test_align_signs_flips_only_signs_to_agree_with_coarser_levels():
-    align_signs = notebook7_functions()["align_signs"]
-
-    # random eigenvectors of 6 levels, with random signs
-    generator = torch.Generator().manual_seed(0)
-    eigvecs = torch.randn(6, 3, 50, generator=generator)
-    signs = torch.where(torch.rand(6, 3, 1, generator=generator) < 0.5, -1.0, 1.0)
-    aligned = align_signs(eigvecs * signs)
-
-    # only the signs change
-    torch.testing.assert_close(aligned.abs(), eigvecs.abs())
-
-    # each eigenvector agrees with the next coarser level; the coarsest sum to > 0
-    assert bool(((aligned[:-1] * aligned[1:]).sum(dim=2) >= 0).all())
-    assert bool((aligned[-1].sum(dim=1) >= 0).all())
-
-
-def test_compute_summary_on_known_records():
-    compute_summary = notebook7_functions()["compute_summary"]
-
-    # three images and two noise levels: orthogonal leading eigenvectors at the first
-    # level, the same one at the second; V4's leading eigenvalue larger at the first
-    basis = torch.eye(4)
-    results = {}
-    for area, values in (("V1", [1.0, 1.0]), ("V4", [2.0, 0.5])):
-        results[area] = {
-            name: SimpleNamespace(
-                log_tau=torch.tensor([0.0, 1.0]),
-                eigenvalues=torch.tensor(values).view(2, 1),
-                eigenvectors=torch.stack([basis[index], basis[3]]).view(2, 1, 4),
-            )
-            for index, name in enumerate(("a", "b", "c"))
-        }
-    summary = compute_summary(results, ["V1", "V4"])
-
-    # |cos| 0 between two different images at the first level, 1 at the second
-    torch.testing.assert_close(summary["similarity_V1"], torch.tensor([0.0, 1.0]))
-
-    # V4 larger in every image at the first level, in none at the second
-    torch.testing.assert_close(summary["second_larger"], torch.tensor([1.0, 0.0]))
-    torch.testing.assert_close(summary["median_V4"], torch.tensor([2.0, 0.5]))
 
 
 def test_notebook_plot_reproduces_reference(tmp_path):

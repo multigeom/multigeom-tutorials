@@ -282,43 +282,11 @@ def run_all_code_cells(
 NOTEBOOK7 = REPO / "notebooks" / "7_eigenvectors_of_G_per_scale.ipynb"
 PER_SCALE_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "per_scale"
 
-# Lines of the code cells of notebook 7 (setup, functions, compute, plot).
+# Lines of the code cells of notebook 7 (setup, compute, plot); its functions are in
+# figures/per_scale.py.
 SETUP7 = "PARAMS = {"
-FUNCTIONS7 = "def plot_per_scale("
 COMPUTE7 = "results[area] = compute_per_scale("
 PLOT7 = "fig, plotted[name] = plot_per_scale("
-
-
-def notebook7_functions() -> dict:
-    """
-    Namespace after running notebook 7's functions cell alone, with the names its
-    definitions and plot functions use: no GPU, checkpoints or new multigeom needed.
-    """
-    import matplotlib
-
-    matplotlib.use("Agg")
-    from types import SimpleNamespace
-
-    import matplotlib.pyplot as plt
-    import numpy as np
-    import torch
-    from matplotlib.gridspec import GridSpec
-
-    from figures.style import AREA_COLORS, panel_label, show_eigenvector
-
-    # the names of the setup cell that the functions use
-    namespace = {
-        "plt": plt,
-        "np": np,
-        "torch": torch,
-        "Path": Path,
-        "SimpleNamespace": SimpleNamespace,
-        "GridSpec": GridSpec,
-        "AREA_COLORS": AREA_COLORS,
-        "panel_label": panel_label,
-        "show_eigenvector": show_eigenvector,
-    }
-    return run_cells(namespace, FUNCTIONS7, notebook=NOTEBOOK7)
 
 
 def per_scale_inputs(path: Path | None = None) -> tuple[dict, dict]:
@@ -355,15 +323,20 @@ def render_per_scale_plot(
     examples: dict, results: dict, out_png: Path, figure_dir: Path
 ) -> dict:
     """
-    Run notebook 7's functions and plot cells on (examples, results), with the figures
-    saved under `figure_dir`, and save the last figure drawn to `out_png` (100 dpi).
-    Returns the namespace of the cells.
+    Run notebook 7's plot cell on (examples, results), with the figures saved under
+    `figure_dir`, and save the last figure drawn to `out_png` (100 dpi). Returns the
+    namespace of the cell.
     """
+    import matplotlib
+
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    # the settings of the notebook that the plot uses
+    from figures.per_scale import plot_per_scale
+
+    # the names of the setup cell that the plot cell uses, and the settings of the plot
     plt.close("all")
-    namespace = notebook7_functions()
+    namespace = {"plt": plt, "Path": Path, "plot_per_scale": plot_per_scale}
     namespace.update(examples=examples, results=results)
     namespace["PARAMS"] = {
         "encoder": "inception",
@@ -384,10 +357,93 @@ def render_per_scale_plot(
 
 def run_notebook7_frog() -> dict:
     """
-    Namespace after running notebook 7's setup, functions and compute cells for the
-    frog only (needs runs/, TinyImageNet and the multigeom with compute_g_per_scale).
+    Namespace after running notebook 7's setup and compute cells for the frog only
+    (needs runs/, TinyImageNet and the multigeom with compute_g_per_scale).
     """
     # the setup cell, then the frog alone
     namespace = run_cells({}, SETUP7, notebook=NOTEBOOK7)
     namespace["PARAMS"]["test_images"] = []
-    return run_cells(namespace, FUNCTIONS7, COMPUTE7, notebook=NOTEBOOK7)
+    return run_cells(namespace, COMPUTE7, notebook=NOTEBOOK7)
+
+
+# ── Notebook 8: stimulus features at each noise level ──────────────────────
+NOTEBOOK8 = REPO / "notebooks" / "8_stimulus_features_per_scale.ipynb"
+STIMULUS_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "stimulus_features"
+
+# Lines of the code cells of notebook 8 (setup, stimulus features, plot); its functions
+# are in figures/per_scale.py.
+SETUP8 = '"prior_area": "V1",'
+ENV8 = "env = compute_env("
+PLOT8 = 'records = {"stimulus": env[name]}'
+
+
+def stimulus_inputs(path: Path | None = None) -> tuple[dict, dict, dict]:
+    """
+    (examples, env, results) like those of notebook 8, for the frog only: env, the
+    stimulus features, from their stored fixture, and results, M_t(x) of V1 and V4, from
+    the fixture of notebook 7 (`per_scale_inputs`: the same frog and seeds).
+    """
+    from types import SimpleNamespace
+
+    import numpy as np
+    import torch
+
+    # the frog and M_t(x), as notebook 7 stored them
+    examples, results = per_scale_inputs()
+
+    # the stored stimulus features, eigenvectors back to float32 (stored as float16)
+    data = np.load(path or STIMULUS_FIXTURES / "stimulus_features_data.npz")
+    record = SimpleNamespace(
+        log_tau=torch.from_numpy(data["log_t"]),
+        eigenvalues=torch.from_numpy(data["eigenvalues"]),
+        eigenvectors=torch.from_numpy(data["eigenvectors"].astype(np.float32)),
+    )
+    return examples, {"frog": record}, results
+
+
+def render_stimulus_plot(
+    examples: dict, env: dict, results: dict, out_png: Path, figure_dir: Path
+) -> dict:
+    """
+    Run notebook 8's plot cell on (examples, env, results), with the figures saved under
+    `figure_dir`, and save the last figure drawn to `out_png` (100 dpi). Returns the
+    namespace of the cell.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from figures.per_scale import plot_per_scale
+
+    # the names of the setup cell that the plot cell uses, and the settings of the plot
+    plt.close("all")
+    namespace = {"plt": plt, "Path": Path, "plot_per_scale": plot_per_scale}
+    namespace.update(examples=examples, env=env, results=results)
+    namespace["PARAMS"] = {
+        "encoder": "inception",
+        "areas": list(AREAS),
+        "prior_area": "V1",
+        "n_samples": 200,
+        "figure_dir": str(figure_dir),
+        "file_dpi": 100,
+        "screen_dpi": 100,
+        "show": ["frog"],
+    }
+
+    # the plot cell, then the figure of the last image
+    run_cells(namespace, PLOT8, notebook=NOTEBOOK8)
+    namespace["fig"].savefig(out_png, dpi=100)
+    plt.close("all")
+    return namespace
+
+
+def run_notebook8_frog() -> dict:
+    """
+    Namespace after running notebook 8's setup and stimulus-features cells for the frog
+    only (needs runs/, TinyImageNet and the multigeom with compute_env_per_scale).
+    """
+    # the setup cell, then the frog alone
+    namespace = run_cells({}, SETUP8, notebook=NOTEBOOK8)
+    namespace["PARAMS"]["test_images"] = []
+    return run_cells(namespace, ENV8, notebook=NOTEBOOK8)
