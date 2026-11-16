@@ -4,6 +4,8 @@ data/*
 runs
 env/
 env-ci/
+assets/*
+!assets/figures/
 *.pt
 *.pth
 *.ckpt
@@ -20,3 +22,4 @@ __pycache__/
 .DS_Store
 .claude
 .ruff_cache
+

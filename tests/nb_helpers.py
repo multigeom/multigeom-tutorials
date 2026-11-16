@@ -276,3 +276,118 @@ def run_all_code_cells(
             source = override_assignment(source, name, value)
         exec(compile(source, f"<{notebook.name} cell {i}>", "exec"), namespace)
     return namespace
+
+
+# ── Notebook 7: eigenvectors of G(x) at each noise level ───────────────────
+NOTEBOOK7 = REPO / "notebooks" / "7_eigenvectors_of_G_per_scale.ipynb"
+PER_SCALE_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "per_scale"
+
+# Lines of the code cells of notebook 7 (setup, functions, compute, plot).
+SETUP7 = "PARAMS = {"
+FUNCTIONS7 = "def plot_per_scale("
+COMPUTE7 = "results[area] = compute_per_scale("
+PLOT7 = "fig, plotted[name] = plot_per_scale("
+
+
+def notebook7_functions() -> dict:
+    """
+    Namespace after running notebook 7's functions cell alone, with the names its
+    definitions and plot functions use: no GPU, checkpoints or new multigeom needed.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from types import SimpleNamespace
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import torch
+    from matplotlib.gridspec import GridSpec
+
+    from figures.style import AREA_COLORS, panel_label, show_eigenvector
+
+    # the names of the setup cell that the functions use
+    namespace = {
+        "plt": plt,
+        "np": np,
+        "torch": torch,
+        "Path": Path,
+        "SimpleNamespace": SimpleNamespace,
+        "GridSpec": GridSpec,
+        "AREA_COLORS": AREA_COLORS,
+        "panel_label": panel_label,
+        "show_eigenvector": show_eigenvector,
+    }
+    return run_cells(namespace, FUNCTIONS7, notebook=NOTEBOOK7)
+
+
+def per_scale_inputs(path: Path | None = None) -> tuple[dict, dict]:
+    """
+    (examples, results) like those of notebook 7's compute cell, for the frog only,
+    from the stored fixture: examples maps "frog" to (image, seed), and results maps
+    each area to {"frog": record}, with the attributes of a PerScaleOutput.
+    """
+    from types import SimpleNamespace
+
+    import numpy as np
+    import torch
+
+    # the stored image, noise levels, eigenvalues and eigenvectors of the frog
+    data = np.load(path or PER_SCALE_FIXTURES / "per_scale_data.npz")
+    image = torch.from_numpy(data["image"]).reshape(1, 1, 64, 64)
+    examples = {"frog": (image, int(data["seed"]))}
+
+    # one record per area, eigenvectors back to float32 (stored as float16)
+    results = {}
+    for area in AREAS:
+        record = SimpleNamespace(
+            log_tau=torch.from_numpy(data["log_t"]),
+            eigenvalues=torch.from_numpy(data[f"{area}_eigenvalues"]),
+            eigenvectors=torch.from_numpy(
+                data[f"{area}_eigenvectors"].astype(np.float32)
+            ),
+        )
+        results[area] = {"frog": record}
+    return examples, results
+
+
+def render_per_scale_plot(
+    examples: dict, results: dict, out_png: Path, figure_dir: Path
+) -> dict:
+    """
+    Run notebook 7's functions and plot cells on (examples, results), with the figures
+    saved under `figure_dir`, and save the last figure drawn to `out_png` (100 dpi).
+    Returns the namespace of the cells.
+    """
+    import matplotlib.pyplot as plt
+
+    # the settings of the notebook that the plot uses
+    plt.close("all")
+    namespace = notebook7_functions()
+    namespace.update(examples=examples, results=results)
+    namespace["PARAMS"] = {
+        "encoder": "inception",
+        "areas": list(AREAS),
+        "n_samples": 200,
+        "figure_dir": str(figure_dir),
+        "file_dpi": 100,
+        "screen_dpi": 100,
+        "show": ["frog"],
+    }
+
+    # the plot cell, then the figure of the last image
+    run_cells(namespace, PLOT7, notebook=NOTEBOOK7)
+    namespace["fig"].savefig(out_png, dpi=100)
+    plt.close("all")
+    return namespace
+
+
+def run_notebook7_frog() -> dict:
+    """
+    Namespace after running notebook 7's setup, functions and compute cells for the
+    frog only (needs runs/, TinyImageNet and the multigeom with compute_g_per_scale).
+    """
+    # the setup cell, then the frog alone
+    namespace = run_cells({}, SETUP7, notebook=NOTEBOOK7)
+    namespace["PARAMS"]["test_images"] = []
+    return run_cells(namespace, FUNCTIONS7, COMPUTE7, notebook=NOTEBOOK7)

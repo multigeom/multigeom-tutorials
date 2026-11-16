@@ -30,6 +30,12 @@ large and unreadable in diffs, do not clutter the package history.
 | `5_local_metric_field` | Local metric field around a reference image (Fig. 5). | TinyImageNet, checkpoints, GPU | about 25 min |
 | `6_bures_wasserstein` | Bures-Wasserstein distance between geometries (Fig. 6). | the outputs of notebook 4 | minutes, CPU |
 
+**Beyond the paper**:
+
+| Notebook | What it does | Needs | Time |
+|---|---|---|---|
+| `7_eigenvectors_of_G_per_scale` | Leading eigenvectors of M_t(x), the integrand of G(x), at each noise level, for the example images of the landing page (V1 and V4). | TinyImageNet, checkpoints, GPU, a `multigeom` with `compute_g_per_scale` | about 6 min |
+
 Start with notebook 0. Notebooks 1 and 2 need only TinyImageNet. Notebooks 3 to 6 reproduce the paper's analyses and need the
 trained checkpoints and TinyImageNet below (the notebooks download them).
 
@@ -100,7 +106,8 @@ pytest                                           # everything; tests that need d
 pytest -m "not slow and not gpu and not pretrained"
 ```
 
-The reference figures can be regenerated with the scripts in `tests/fixtures/`.
+The reference figures can be regenerated with the scripts in `tests/fixtures/`. [`tests/README.md`](tests/README.md)
+describes each regression test and unit test.
 
 ## Layout
 
