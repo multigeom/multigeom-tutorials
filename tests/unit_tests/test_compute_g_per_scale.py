@@ -16,7 +16,12 @@ noise predictions it is built from, with mock models:
     sample s (in image units), N the number of samples and t the noise variance;
   - the explicit matrix M̂_t = Σ_s δ_s δ_sᵀ / (2 N t) is symmetric and positive
     semi-definite within numerical tolerance, and so is the matrix rebuilt from the
-    eigenpairs that compute_g_per_scale returns, which is the same matrix.
+    eigenpairs that compute_g_per_scale returns, which is the same matrix;
+  - the curve tr M̂_t equals t · trace(⟨J_t⟩), with J_t the Fisher information of the
+    responses about the noisy image, for a linear-Gaussian model whose posterior means
+    are exact, when the responses are drawn with the spread they have given the noisy
+    image. The estimator draws them given the denoised image instead, an approximation
+    that lowers the curve.
 """
 
 from __future__ import annotations
@@ -48,6 +53,8 @@ PARAMS = {
     "batch_size": 10,
     "grid": (100, 900, 200),
     "top_k": 3,
+    # the DDPM steps of the check against the Fisher information, from fine to coarse
+    "fisher_levels": (10, 100, 300, 600, 900),
 }
 
 
@@ -130,6 +137,115 @@ class MockEncoder(nn.Module):
         # the mean of each image, with a different gain for each neuron
         gains = torch.arange(1.0, self.n_neurons + 1)
         return images.flatten(1).mean(dim=1, keepdim=True) * gains
+
+
+class GaussianDenoiser(nn.Module):
+    """
+    The exact posterior means of a linear-Gaussian model, as the noise prediction ε of
+    a diffusion network: prior x ~ N(0, C), responses r = A x + σ ξ, noisy image
+    y = x + √t ε (variance-exploding). The null token gives E[x | y]; a response gives
+    E[x | y, r].
+    """
+
+    def __init__(self, alphas_cumprod: torch.Tensor, model: dict):
+        super().__init__()
+
+        # ᾱ of each DDPM step, the prior precision C⁻¹, the readout A and σ, in float64
+        self.register_buffer("alphas_cumprod", alphas_cumprod.double())
+        self.register_buffer("prior_precision", torch.linalg.inv(model["prior"]))
+        self.register_buffer("readout", model["readout"])
+        self.sigma = model["sigma"]
+
+    def forward(
+        self, x_t: torch.Tensor, timestep: torch.Tensor, response: torch.Tensor
+    ) -> torch.Tensor:
+        # the noise variance t of each image, and the image in variance-exploding units
+        alpha_bar = self.alphas_cumprod[timestep].view(-1, 1)
+        noise_variance = (1 - alpha_bar) / alpha_bar
+        y = x_t.flatten(1).double() / alpha_bar.sqrt()
+
+        # the posterior precision: the prior and the noisy image, plus the response
+        # unless it is the null token (all zeros)
+        has_response = response.any(dim=1).double().view(-1, 1)
+        likelihood = self.readout.T @ self.readout / self.sigma**2
+        identity = torch.eye(y.shape[1], dtype=torch.float64)
+        precision = self.prior_precision + identity / noise_variance.view(-1, 1, 1)
+        precision = precision + has_response.view(-1, 1, 1) * likelihood
+
+        # the evidence of the noisy image and of the response, weighted by precision
+        readout_evidence = response.double() @ self.readout / self.sigma**2
+        evidence = y / noise_variance + has_response * readout_evidence
+
+        # the posterior mean x̂, one linear system per image
+        x_hat = torch.linalg.solve(precision, evidence.unsqueeze(-1)).squeeze(-1)
+
+        # the noise prediction that Tweedie's formula turns back into x̂
+        noisy = x_t.flatten(1).double()
+        eps = (noisy - alpha_bar.sqrt() * x_hat) / (1 - alpha_bar).sqrt()
+        return eps.view_as(x_t).to(x_t.dtype)
+
+
+class LinearEncoder(nn.Module):
+    """The encoder of the linear-Gaussian model: the responses A x, without noise."""
+
+    def __init__(self, readout: torch.Tensor):
+        super().__init__()
+
+        # the readout A [n, P], and its number of neurons
+        self.register_buffer("readout", readout.float())
+        self.n_neurons = readout.shape[0]
+
+    def forward(self, images: torch.Tensor) -> torch.Tensor:
+        # A x for each image
+        return images.flatten(1) @ self.readout.T
+
+
+def get_gaussian_model() -> dict:
+    """
+    A linear-Gaussian model on images of PARAMS["image_size"]² pixels, in float64: the
+    prior covariance C = U diag(c) Uᵀ, whose first n_neurons eigen-directions have the
+    variance 1 and the others between 0.5 and 0.001; the readout A, which mixes those
+    first directions, so that given the noisy image the responses spread the same way
+    in every direction; and the response noise σ.
+    """
+    # a random orthogonal basis U, and the prior variances c
+    n_pixels, n_neurons = PARAMS["image_size"] ** 2, PARAMS["n_neurons"]
+    generator = torch.Generator().manual_seed(2)
+    draw = {"generator": generator, "dtype": torch.float64}
+    basis = torch.linalg.qr(torch.randn(n_pixels, n_pixels, **draw))[0]
+    others = 0.5 * 0.9 ** torch.arange(n_pixels - n_neurons, dtype=torch.float64)
+    variances = torch.cat([torch.ones(n_neurons, dtype=torch.float64), others])
+
+    # the readout: a random rotation of the first n_neurons directions
+    rotation = torch.linalg.qr(torch.randn(n_neurons, n_neurons, **draw))[0]
+    readout = rotation @ basis[:, :n_neurons].T
+    prior = basis @ torch.diag(variances) @ basis.T
+    return {"prior": prior, "readout": readout, "sigma": 0.3}
+
+
+def get_fisher_curve(model: dict, noise_variance: float) -> tuple[float, float]:
+    """
+    For the linear-Gaussian model at the noise variance t: t · trace(J_t), with
+    J_t = K_tᵀ Aᵀ S_t⁻¹ A K_t the Fisher information of the responses about the noisy
+    image (K_t = C (C + t I)⁻¹, S_t = A Σ_t Aᵀ + σ² I with Σ_t the posterior covariance
+    of the image), and the spread of the responses given the noisy image, S_t[0, 0]
+    (S_t is that times the identity in this model).
+    """
+    # the posterior mean gain K_t and covariance Σ_t of the image given the noisy image
+    prior, readout, t = model["prior"], model["readout"], noise_variance
+    identity = torch.eye(len(prior), dtype=torch.float64)
+    gain = prior @ torch.linalg.inv(prior + t * identity)
+    posterior = torch.linalg.inv(torch.linalg.inv(prior) + identity / t)
+
+    # the covariance of the responses given the noisy image, the same in every direction
+    spread = readout @ posterior @ readout.T + model["sigma"] ** 2 * torch.eye(
+        len(readout), dtype=torch.float64
+    )
+    torch.testing.assert_close(spread, spread[0, 0] * torch.eye(len(readout)).double())
+
+    # the Fisher information of the responses about the noisy image, times t
+    fisher = gain.T @ readout.T @ torch.linalg.inv(spread) @ readout @ gain
+    return t * float(torch.trace(fisher)), float(spread[0, 0])
 
 
 def get_alphas_cumprod() -> torch.Tensor:
@@ -395,3 +511,58 @@ def test_explicit_matrix_is_symmetric_and_positive_semidefinite():
         # the eigenpairs of the estimate describe the explicit matrix
         error = torch.linalg.matrix_norm(rebuilt - explicit[level])
         assert float(error / torch.linalg.matrix_norm(explicit[level])) < 1e-5
+
+
+def compute_trace_at(level: int, model: dict, spread: float) -> float:
+    """
+    The trace of the estimate of M_t(x) at the DDPM step `level`, for a random image and
+    the linear-Gaussian `model`, with the responses drawn with the variance `spread`
+    around f(x̂(x_t)): the sum of all its eigenvalues (its rank is at most n_neurons,
+    fewer than the eigenpairs kept).
+    """
+    # the settings: this noise level only, many samples, the spread of the responses
+    cfg = get_cfg()
+    grid = cfg.monte_carlo.timestep_grid
+    grid.start, grid.stop, grid.step = level, level, 1
+    cfg.monte_carlo.n_samples, cfg.monte_carlo.batch_size = 4000, 1000
+    cfg.monte_carlo.observation_noise_sigma = spread**0.5
+    cfg.top_k = PARAMS["n_neurons"] + 2
+
+    # a random image, and the estimate with the exact posterior means of the model
+    alphas_cumprod = get_alphas_cumprod()
+    size = PARAMS["image_size"]
+    generator = torch.Generator().manual_seed(level)
+    image = torch.rand(1, 1, size, size, generator=generator) * 2 - 1
+    out = compute_g_per_scale(
+        image=image,
+        encoder=LinearEncoder(model["readout"]),
+        unet=GaussianDenoiser(alphas_cumprod, model),
+        alphas_cumprod=alphas_cumprod,
+        cfg=cfg,
+        device=torch.device("cpu"),
+        generator=generator,
+    )
+    return float(out.eigenvalues.double().sum())
+
+
+@needs_per_scale
+def test_the_curve_equals_t_times_the_trace_of_the_fisher_information():
+    """
+    The curve tr M̂_t equals t · trace(⟨J_t⟩) at noise levels from fine to coarse, J_t
+    the Fisher information of the responses about the noisy image, for the
+    linear-Gaussian model (where J_t does not depend on the noisy image, so
+    ⟨J_t⟩ = J_t). The estimator draws the responses given the denoised image,
+    N(f(x̂), σ²); here they are drawn with the spread they have given the noisy image,
+    S_t = A Σ_t Aᵀ + σ² I (the same in every direction in this model), so that the
+    samples are exact. Monte-Carlo error about 2% with 4000 samples; tolerance 10%.
+    """
+    model = get_gaussian_model()
+    alphas_cumprod = get_alphas_cumprod()
+    for level in PARAMS["fisher_levels"]:
+        # t · trace(J_t), and the spread of the responses, in closed form
+        noise_variance = get_noise_variance(alphas_cumprod, level)
+        expected, spread = get_fisher_curve(model, noise_variance)
+
+        # the trace of the estimate, with exact samples of the responses
+        trace = compute_trace_at(level, model, spread)
+        assert trace == pytest.approx(expected, rel=0.1), (level, trace, expected)

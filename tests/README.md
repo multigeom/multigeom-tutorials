@@ -20,7 +20,7 @@ model-loading run of notebook 3, shared by its tests) and `conftest.py` (environ
 
 ## Regression tests
 
-44 tests, 37 of which run on GitHub Actions (the 7 marked `slow` do not). They check that the notebooks and the figure
+48 tests, 40 of which run on GitHub Actions (the 8 marked `slow` do not). They check that the notebooks and the figure
 scripts still run, and still reproduce the figures and the numbers stored in `fixtures/`. A figure is compared pixel by
 pixel with its reference picture: at most a mean absolute difference of 0.001, and at most 0.2% of the pixels off by
 more than 0.1. The figures of notebooks 3, 4, 5 and 7 also have a `test_plot_comparison_detects_changes`, which changes
@@ -68,6 +68,10 @@ the data and checks that the comparison then fails, so that it cannot pass by ac
 | | `test_notebook_plot_reproduces_reference` | The plot cell of notebook 8 draws the figure of the frog (stimulus features, then V1 and V4 from notebook 7's fixture) like the reference picture, and saves it. | yes |
 | | `test_plot_comparison_detects_changes` | The comparison fails when the eigenvectors of the stimulus features are reversed. | yes |
 | | `test_recompute_matches_fixture` | The stimulus features of the frog recomputed from the V1 checkpoint have the stored settings and noise levels, and at the coarse levels (τ ≥ 3) the stored leading eigenvector (\|cos\| > 0.9) and leading eigenvalue (within 30%). | no (slow) |
+| [`test_envelope_spectrum.py`](test_envelope_spectrum.py) | `test_fixture_is_wellformed` | The stored envelope spectrum of notebook 9 has 31 increasing noise levels, a positive curve for each of the 200 test images and both models, the variances of the training images largest first, and a Gaussian bound that decreases from below P. | yes |
+| | `test_notebook_plot_reproduces_reference` | The plot cell of notebook 9 draws the envelope spectrum like the reference picture, and saves it. | yes |
+| | `test_plot_comparison_detects_changes` | The comparison fails when the V4 model's curve is made 1.5 times larger. | yes |
+| | `test_recompute_matches_fixture` | The spectrum recomputed from the V1 and V4 checkpoints has the stored noise levels and mean curves (within 2%), and the training images give the stored variances and Gaussian bound. | no (slow) |
 | [`test_getting_started_notebooks.py`](test_getting_started_notebooks.py) | `test_notebook_1_builds_fits_saves_and_reloads_an_encoder` | Notebook 1 runs on a tiny fake TinyImageNet: it builds and fits an encoder of 50 neurons, saves it, and the reloaded encoder predicts the same responses. | yes |
 | | `test_notebook_1_checks_the_contract_and_compares_fisher_with_the_teacher` | Notebook 1 checks the encoder against the contract, and compares the leading eigenvectors of its Fisher information with those of the teacher (alignment at k = 1, 5 and 10, between 0 and 1). | yes |
 | | `test_notebook_2_trains_a_diffusion_model_and_computes_g` | Notebook 2 trains a small diffusion model and computes finite G(x) and J(x) of the expected shapes. | yes |
@@ -75,8 +79,8 @@ the data and checks that the comparison then fails, so that it cannot pass by ac
 
 ## Unit tests
 
-10 tests. They check one function on inputs whose answer is known, without stored references, data or checkpoints. They
-all run on GitHub Actions, except the 4 that need `compute_g_per_scale`: they are skipped until the `multigeom` that
+12 tests. They check one function on inputs whose answer is known, without stored references, data or checkpoints. They
+all run on GitHub Actions, except the 5 that need `compute_g_per_scale`: they are skipped until the `multigeom` that
 GitHub Actions installs (the package's `main` branch, or `develop` when testing `develop`) has it.
 
 | File | Test | What it checks | GitHub Actions |
@@ -87,7 +91,9 @@ GitHub Actions installs (the package's `main` branch, or `develop` when testing 
 | | `test_differences_are_not_zero_when_the_responses_differ` | The control: with the default σ (0.22) the responses differ, and the same mock gives a non-zero row for every sample at every noise level. | yes |
 | | `test_trace_of_m_t_is_the_sum_of_squared_differences_over_2nt` | Trace check: at every noise level, the sum of all the eigenvalues of the estimate is tr M̂_t = Σ_s \|δ_s\|² / (2 N t), where δ_s = x̂(x_t, r) − x̂(x_t, r′) is the difference of the two denoised images of sample s (Tweedie's formula, in image units, from the calls recorded by the mock denoiser), N the number of samples and t the noise variance. | skipped until `multigeom` has `compute_g_per_scale` |
 | | `test_explicit_matrix_is_symmetric_and_positive_semidefinite` | Explicit matrix check: at every noise level, the whole P x P matrix M̂_t = Σ_s δ_s δ_sᵀ / (2 N t), built from the differences of the denoised images that the estimator drew, is symmetric and positive semi-definite within numerical tolerance (no eigenvalue below −1e-10 times the largest; its zero eigenvalues come out around −1e-16); so is the matrix rebuilt from the eigenpairs that `compute_g_per_scale` returns, and the two agree (relative difference below 1e-5). | skipped until `multigeom` has `compute_g_per_scale` |
+| | `test_the_curve_equals_t_times_the_trace_of_the_fisher_information` | The curve trace(M̂_t) equals t · trace(⟨J_t⟩), J_t the Fisher information of the responses about the noisy image, at five noise levels from log t = −6.1 to 8.2 (agreement within 1.3%, tolerance 10%). It uses a linear-Gaussian model whose posterior means and Fisher information are known in closed form, and draws the responses with the spread they have given the noisy image; with the estimator's own draws, given the denoised image, the curve is lower (8% to 99% of it in this model, the coarser the lower), which the test also catches. | skipped until `multigeom` has `compute_g_per_scale` |
 | [`unit_tests/test_per_scale_helpers.py`](unit_tests/test_per_scale_helpers.py) | `test_align_signs_flips_only_signs_to_agree_with_coarser_levels` | `align_signs` (`figures/per_scale.py`, notebooks 7 and 8) only flips signs, makes each eigenvector agree with the same one at the next coarser level, and gives the coarsest a positive sum. | yes |
 | | `test_compute_summary_on_known_records` | `compute_summary` (`figures/per_scale.py`, notebook 7) gives \|cos\| 0 between images with orthogonal eigenvectors and 1 with the same one, and the fraction of images where V4's leading eigenvalue is larger. | yes |
+| | `test_compute_gaussian_env_on_known_variances` | `compute_gaussian_env` (`figures/per_scale.py`, notebook 9), the envelope spectrum of a Gaussian prior, gives Σ_i c_i / (c_i + t) on known variances: the number of directions that vary at tiny noise, ½ per unit-variance direction at t = 1, and tr C / t at huge noise. | yes |
 | [`test_figures.py`](test_figures.py) | `test_style_keeps_the_notebook_backend_in_a_jupyter_kernel` | Importing `figures.style` in a Jupyter kernel keeps the notebook backend, so figures show as pictures (it switches to Agg only in scripts). | yes |
 | | `test_encoder_checkpoint_gives_the_scores_in_both_layouts` | `encoder_checkpoint` reads the test scores of an encoder checkpoint in both layouts (older paper checkpoints and `NeuralEncoder.save`), and returns None when there is none. | yes |

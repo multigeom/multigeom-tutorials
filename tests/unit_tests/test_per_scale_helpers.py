@@ -50,3 +50,17 @@ def test_compute_summary_on_known_records():
     # V4 larger in every image at the first level, in none at the second
     torch.testing.assert_close(summary["second_larger"], torch.tensor([1.0, 0.0]))
     torch.testing.assert_close(summary["median_V4"], torch.tensor([2.0, 0.5]))
+
+
+def test_compute_gaussian_env_on_known_variances():
+    from figures.per_scale import compute_gaussian_env
+
+    # two directions of variance 1 and one of variance 0
+    variances = torch.tensor([1.0, 1.0, 0.0], dtype=torch.float64)
+    log_t = torch.log(torch.tensor([1e-9, 1.0, 1e9], dtype=torch.float64))
+    curve = compute_gaussian_env(variances, log_t)
+
+    # tiny noise: the two directions with variance (a direction without any is known);
+    # t = 1: 1/2 each; huge noise: the total variance over t
+    expected = torch.tensor([2.0, 1.0, 2e-9], dtype=torch.float64)
+    torch.testing.assert_close(curve, expected, rtol=1e-6, atol=0)

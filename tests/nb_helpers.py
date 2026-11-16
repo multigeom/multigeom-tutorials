@@ -447,3 +447,82 @@ def run_notebook8_frog() -> dict:
     namespace = run_cells({}, SETUP8, notebook=NOTEBOOK8)
     namespace["PARAMS"]["test_images"] = []
     return run_cells(namespace, ENV8, notebook=NOTEBOOK8)
+
+
+# ── Notebook 9: the envelope spectrum ──────────────────────────────────────
+NOTEBOOK9 = REPO / "notebooks" / "9_envelope_spectrum.ipynb"
+ENVELOPE_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "envelope_spectrum"
+
+# Lines of the code cells of notebook 9 (setup, spectrum, Gaussian bound, plot); its
+# functions are in figures/per_scale.py.
+SETUP9 = '"prior_areas": ["V1", "V4"],'
+SPECTRUM9 = "spectra[area] = compute_env_spectrum("
+GAUSSIAN9 = "variances = compute_prior_variances("
+PLOT9 = "plot_env_spectrum(spectra, gaussian, variances, PARAMS)"
+
+
+def envelope_inputs(path: Path | None = None) -> tuple[dict, "object", "object"]:
+    """
+    (spectra, variances, gaussian) like those of notebook 9, from the stored fixture:
+    spectra maps each model to its curves (`log_tau` [J], `values` [images, J]),
+    variances are those of the training images, and gaussian the Gaussian bound.
+    """
+    from types import SimpleNamespace
+
+    import numpy as np
+    import torch
+
+    # the stored curves of each model, and the variances of the training images
+    data = np.load(path or ENVELOPE_FIXTURES / "envelope_spectrum_data.npz")
+    log_tau = torch.from_numpy(data["log_t"])
+    spectra = {
+        area: SimpleNamespace(
+            log_tau=log_tau, values=torch.from_numpy(data[f"{area}_values"])
+        )
+        for area in AREAS
+    }
+    variances = torch.from_numpy(data["variances"])
+    return spectra, variances, torch.from_numpy(data["gaussian"])
+
+
+def render_envelope_plot(
+    spectra: dict, variances, gaussian, out_png: Path, figure_dir: Path
+) -> dict:
+    """
+    Run notebook 9's plot cell on (spectra, variances, gaussian), with the figure saved
+    under `figure_dir`, and save it to `out_png` (100 dpi). Returns the namespace of the
+    cell.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from figures.per_scale import plot_env_spectrum
+
+    # the names of the setup cell that the plot cell uses, and the settings of the plot
+    plt.close("all")
+    namespace = {"Path": Path, "plot_env_spectrum": plot_env_spectrum}
+    namespace.update(spectra=spectra, variances=variances, gaussian=gaussian)
+    namespace["PARAMS"] = {
+        "encoder": "inception",
+        "n_noise": 8,
+        "figure_dir": str(figure_dir),
+        "file_dpi": 100,
+        "screen_dpi": 100,
+    }
+
+    # the plot cell, then its figure
+    run_cells(namespace, PLOT9, notebook=NOTEBOOK9)
+    namespace["fig"].savefig(out_png, dpi=100)
+    plt.close("all")
+    return namespace
+
+
+def run_notebook9() -> dict:
+    """
+    Namespace after running notebook 9's setup, spectrum and Gaussian-bound cells (needs
+    runs/, TinyImageNet and the multigeom with compute_env_spectrum; about 2 min on a
+    GPU).
+    """
+    return run_cells({}, SETUP9, SPECTRUM9, GAUSSIAN9, notebook=NOTEBOOK9)

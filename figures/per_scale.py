@@ -1,7 +1,7 @@
 """
-Helpers of notebooks 7 and 8, on the scale-resolved decomposition of G(x): the example
-images, the estimates at each noise level, and the figures of their leading
-eigenvectors.
+Helpers of notebooks 7 to 9, on the scale-resolved decomposition of G(x): the example
+images, the estimates at each noise level, the figures of their leading eigenvectors,
+and the envelope spectrum.
 
     load_examples       the frog and the test images of the landing page, with seeds
     compute_per_scale   M_t(x), the integrand of G(x), at each level (notebooks 7, 8)
@@ -12,6 +12,10 @@ eigenvectors.
     plot_summary
     compute_alignment   the alignment of M_t(x) with M_t^env(x) per level (notebook 8)
     plot_alignment
+    load_test_images    the test images of notebook 4 (notebook 9)
+    compute_prior_variances   the variances of the training images (notebook 9)
+    compute_gaussian_env      the envelope spectrum of a Gaussian prior (notebook 9)
+    plot_env_spectrum
 
 The functions of the package are looked up when they are called (`multigeom.<name>`), so
 that this module imports with a multigeom that does not have them yet.
@@ -35,6 +39,11 @@ from .style import AREA_COLORS, panel_label, plt, show_eigenvector
 
 # the colour of each block of eigenvectors: the areas, and the stimulus features
 BLOCK_COLORS = {**AREA_COLORS, "stimulus": "#4D4D4D"}
+
+# the colours of the envelope spectrum: the null token of each model, the Gaussian
+# bound, and its limits
+SPECTRUM_COLORS = {"V1": "#000000", "V4": "#8C8C8C", "gaussian": "#CC79A7"}
+LIMIT_COLOR = "#BBBBBB"
 
 # the layout of the figure of one image: the height of its rows (in units of a tile),
 # its width, the height with two blocks, and the extra height of each further block
@@ -452,6 +461,158 @@ def plot_alignment(alignment: dict, params: dict, k: int) -> tuple[plt.Figure, d
         r"Alignment of $M_t(x)$ with the stimulus features $M_t^{\rm env}(x)$"
         f" ({params['encoder']}, {alignment[areas[0]].shape[0]} images; dotted: "
         "random subspaces)",
+        fontsize=11,
+        y=1.03,
+    )
+    return fig, data
+
+
+def load_test_images(n: int) -> torch.Tensor:
+    """
+    The first `n` TinyImageNet validation images in sorted file order, the test images
+    of notebook 4, [n, 1, 64, 64] in [-1, 1].
+    """
+    # the validation images, in the canonical transform
+    test_set = TinyImageNetDataset(split="val", transform=CANONICAL_TRANSFORM)
+    return torch.stack([test_set[index] for index in range(n)])
+
+
+def compute_prior_variances(images_per_class: int) -> torch.Tensor:
+    """
+    The variances of the training images along their principal components, largest
+    first, [P] in float64: the eigenvalues of the pixel covariance of the first
+    `images_per_class` images of each of the 200 classes.
+    """
+    # the training images, one row of pixels each
+    train = TinyImageNetDataset(
+        split="train", transform=CANONICAL_TRANSFORM, images_per_class=images_per_class
+    )
+    pixels = torch.stack([train[index] for index in range(len(train))]).flatten(1)
+
+    # the eigenvalues of their covariance, largest first (rounding can make 0 negative)
+    covariance = torch.cov(pixels.double().T)
+    return torch.linalg.eigvalsh(covariance).flip(0).clamp(min=0)
+
+
+def compute_gaussian_env(variances: torch.Tensor, log_t: torch.Tensor) -> torch.Tensor:
+    """
+    The envelope spectrum of a Gaussian prior with these `variances`, which is also the
+    error of the best linear denoiser (the Wiener filter) for any prior with them:
+    Σ_i c_i / (c_i + t) at each log t [J]. It bounds the true curve from above, and
+    tends to the number of pixels at fine levels and to Σ_i c_i / t at coarse ones.
+    """
+    # the noise variances, then the sum over the principal components
+    noise_variances = log_t.double().exp()[:, None]
+    return (variances[None, :] / (variances[None, :] + noise_variances)).sum(dim=1)
+
+
+def plot_env_spectrum(
+    spectra: dict, gaussian: torch.Tensor, variances: torch.Tensor, params: dict
+) -> tuple[plt.Figure, dict]:
+    """
+    The envelope spectrum against tau = log t. A (log scale): for the null token of each
+    model of `spectra` (name → curves of the images, with `log_tau` and `values`), the
+    mean over the images, and the 10–90% band of the images for the first; the Gaussian
+    bound `gaussian`; and its limits, the number of pixels P and tr C / t. B: each mean
+    over the Gaussian bound. Returns the figure and the data it shows.
+    """
+    # the data drawn: per model the mean, the band of the images and the ratio
+    first = next(iter(spectra.values()))
+    log_t = first.log_tau.double()
+    data = {"log_t": log_t.numpy(), "gaussian": gaussian.numpy()}
+    data["n_pixels"], data["coarse_limit"] = (
+        len(variances),
+        (variances.sum() / log_t.exp()).numpy(),
+    )
+    for name, record in spectra.items():
+        values = record.values.double()
+        data[name] = {
+            "mean": values.mean(dim=0).numpy(),
+            "band": values.quantile(torch.tensor([0.1, 0.9]).double(), dim=0).numpy(),
+            "ratio": (values.mean(dim=0) / gaussian).numpy(),
+        }
+
+    # two panels side by side
+    fig, (ax_curve, ax_ratio) = plt.subplots(
+        1, 2, figsize=(12, 4.2), dpi=params["screen_dpi"]
+    )
+
+    # A: the curves of the null tokens, the band of the images of the first one
+    for index, name in enumerate(spectra):
+        style = "-" if index == 0 else "--"
+        color = SPECTRUM_COLORS[name]
+        ax_curve.plot(
+            data["log_t"],
+            data[name]["mean"],
+            style,
+            color=color,
+            lw=2,
+            label=f"{name} model",
+        )
+        if index == 0:
+            low, high = data[name]["band"]
+            ax_curve.fill_between(
+                data["log_t"],
+                low,
+                high,
+                color=color,
+                alpha=0.15,
+                lw=0,
+                label=f"{name}: 10–90% of the images",
+            )
+
+    # A: the Gaussian bound, and its two limits
+    ax_curve.plot(
+        data["log_t"],
+        data["gaussian"],
+        color=SPECTRUM_COLORS["gaussian"],
+        lw=1.5,
+        label="Gaussian bound",
+    )
+    ax_curve.axhline(
+        data["n_pixels"], color=LIMIT_COLOR, ls=":", lw=1, label="P (no denoising)"
+    )
+    ax_curve.plot(
+        data["log_t"],
+        data["coarse_limit"],
+        ":",
+        color=LIMIT_COLOR,
+        lw=1.5,
+        label="tr C / t",
+    )
+    ax_curve.set_yscale("log")
+    ax_curve.set_ylim(data[next(iter(spectra))]["mean"].min() / 3, data["n_pixels"] * 3)
+    ax_curve.set_xlabel(r"$\tau = \log t$")
+    ax_curve.set_ylabel(
+        r"$\rho^{\rm env}(\tau) = \mathbb{E}\,\frac{1}{t}\,\|\hat x(x_t) - x\|^2$"
+    )
+    ax_curve.legend(fontsize=8, frameon=False, loc="lower left")
+
+    # B: each curve over the Gaussian bound
+    for index, name in enumerate(spectra):
+        style = "-" if index == 0 else "--"
+        ax_ratio.plot(
+            data["log_t"],
+            data[name]["ratio"],
+            style,
+            color=SPECTRUM_COLORS[name],
+            lw=2,
+            label=f"{name} model",
+        )
+    ax_ratio.axhline(
+        1.0, color=SPECTRUM_COLORS["gaussian"], lw=1.5, label="Gaussian bound"
+    )
+    ax_ratio.set_xlabel(r"$\tau = \log t$")
+    ax_ratio.set_ylabel("learned curve over\nthe Gaussian bound")
+    ax_ratio.legend(fontsize=8, frameon=False, loc="upper left")
+
+    # the panel letters, and the title
+    for letter, ax in zip("AB", (ax_curve, ax_ratio)):
+        panel_label(fig, ax, letter)
+    n_images = len(first.values)
+    fig.suptitle(
+        f"Envelope spectrum of the {n_images} test images ({params['encoder']} models,"
+        f" {params['n_noise']} noisy versions per image and level)",
         fontsize=11,
         y=1.03,
     )
