@@ -278,6 +278,27 @@ def run_all_code_cells(
     return namespace
 
 
+# ── inputs of the slow tests of notebooks 7 to 10 ──────────────────────────
+# the frog, the example image of notebooks 7 and 8
+FROG_IMAGE = "data/tiny-imagenet-200/train/n01644900/images/n01644900_0.JPEG"
+
+
+def have_inputs(data: list[str], areas: tuple = AREAS) -> bool:
+    """
+    Whether the data paths `data` (relative to the repository root) and the inception
+    checkpoints (encoder and diffusion model) of `areas` are present: the slow tests
+    recompute from them, and they are not available on GitHub.
+    """
+    # the data, then the two checkpoints of each area
+    needed = [REPO / path for path in data]
+    for area in areas:
+        needed += [
+            REPO / f"runs/encoders/inception/{area}/best_model.pt",
+            REPO / f"runs/diffusion/inception/{area}/final_model.pt",
+        ]
+    return all(path.exists() for path in needed)
+
+
 # ── Notebook 7: eigenvectors of G(x) at each noise level ───────────────────
 NOTEBOOK7 = REPO / "notebooks" / "7_eigenvectors_of_G_per_scale.ipynb"
 PER_SCALE_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "per_scale"
@@ -526,3 +547,112 @@ def run_notebook9() -> dict:
     GPU).
     """
     return run_cells({}, SETUP9, SPECTRUM9, GAUSSIAN9, notebook=NOTEBOOK9)
+
+
+# ── Notebook 10: the coding spectrum ───────────────────────────────────────
+NOTEBOOK10 = REPO / "notebooks" / "10_coding_spectrum.ipynb"
+CODING_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "coding_spectrum"
+
+# Lines of the code cells of notebook 10 (setup, spectrum, fine-end limit, plot); its
+# functions are in figures/per_scale.py.
+SETUP10 = '"areas": ["V1", "V4"],'
+SPECTRUM10 = "spectra[area] = compute_coding_spectrum("
+FISHER10 = "area: compute_fisher_traces(images, encoders[area], sigma, device)"
+PLOT10 = "plot_coding_spectrum(spectra, traces, PARAMS)"
+
+# the per-image terms of a coding spectrum, as multigeom.CodingSpectrumOutput holds them
+CODING_TERMS = ("env", "coded", "gain", "sampled")
+
+
+def coding_record(log_tau, env, coded, gain, sampled) -> "object":
+    """
+    A stand-in for multigeom.CodingSpectrumOutput (absent from the released package):
+    the noise levels [J], the four terms of each image [images, J], and the three
+    curves the notebook reads from them, averaged over the images.
+    """
+    from types import SimpleNamespace
+
+    # the stored terms, and the curves: the errors without and with the responses (the
+    # note's eq. 7), what the responses change, and notebook 7's estimate
+    record = SimpleNamespace(
+        log_tau=log_tau, env=env, coded=coded, gain=gain, sampled=sampled
+    )
+    record.rho = (env - coded).mean(dim=0)
+    record.rho_gain = gain.mean(dim=0)
+    record.rho_sampled = sampled.mean(dim=0)
+    return record
+
+
+def coding_inputs(path: Path | None = None) -> tuple[dict, dict]:
+    """
+    (spectra, traces) like those of notebook 10, from the stored fixture: spectra maps
+    each area to its coding spectrum, traces to the trace of J(x) of each image.
+    """
+    import numpy as np
+    import torch
+
+    # the stored terms and traces of each area
+    data = np.load(path or CODING_FIXTURES / "coding_spectrum_data.npz")
+    log_tau = torch.from_numpy(data["log_t"])
+    spectra, traces = {}, {}
+    for area in AREAS:
+        terms = {
+            name: torch.from_numpy(data[f"{area}_{name}"]) for name in CODING_TERMS
+        }
+        spectra[area] = coding_record(log_tau, **terms)
+        traces[area] = torch.from_numpy(data[f"{area}_traces"])
+    return spectra, traces
+
+
+def render_coding_plot(
+    spectra: dict, traces: dict, out_png: Path, figure_dir: Path
+) -> dict:
+    """
+    Run notebook 10's plot cell on (spectra, traces), with the figure saved under
+    `figure_dir`, and save it to `out_png` (100 dpi). Returns the namespace of the cell.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import torch
+
+    from figures.per_scale import (
+        compute_centre,
+        compute_information,
+        plot_coding_spectrum,
+    )
+
+    # the names of the setup cell that the plot cell uses, and the settings of the plot
+    plt.close("all")
+    namespace = {
+        "Path": Path,
+        "torch": torch,
+        "compute_centre": compute_centre,
+        "compute_information": compute_information,
+        "plot_coding_spectrum": plot_coding_spectrum,
+        "spectra": spectra,
+        "traces": traces,
+    }
+    namespace["PARAMS"] = {
+        "encoder": "inception",
+        "n_noise": 8,
+        "figure_dir": str(figure_dir),
+        "file_dpi": 100,
+        "screen_dpi": 100,
+    }
+
+    # the plot cell, then its figure
+    run_cells(namespace, PLOT10, notebook=NOTEBOOK10)
+    namespace["fig"].savefig(out_png, dpi=100)
+    plt.close("all")
+    return namespace
+
+
+def run_notebook10() -> dict:
+    """
+    Namespace after running notebook 10's setup, spectrum and fine-end-limit cells
+    (needs runs/, TinyImageNet and the multigeom with compute_coding_spectrum; about
+    7 min on a GPU).
+    """
+    return run_cells({}, SETUP10, SPECTRUM10, FISHER10, notebook=NOTEBOOK10)

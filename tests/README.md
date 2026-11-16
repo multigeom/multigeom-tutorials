@@ -13,18 +13,20 @@ pytest tests/unit_tests                               # the unit tests only
 Tests marked `slow` recompute results from the trained checkpoints (`runs/`) and the TinyImageNet data, or run a notebook
 end to end. GitHub Actions does not run them; run them on your machine before regenerating a fixture. The fixtures are
 regenerated with the scripts in `fixtures/` (`make_fig3_fixtures.py`, `make_fig4_de_fixtures.py`, `make_fig5_fixtures.py`,
-`make_fig6_fixtures.py`, `make_per_scale_fixtures.py`).
+`make_fig6_fixtures.py`, `make_per_scale_fixtures.py`, `make_stimulus_features_fixtures.py`,
+`make_envelope_spectrum_fixtures.py`, `make_coding_spectrum_fixtures.py`).
 
-The helpers are in `nb_helpers.py` (running the cells of a notebook, comparing two pictures), `nb_fixtures.py` (the
-model-loading run of notebook 3, shared by its tests) and `conftest.py` (environment settings).
+The helpers are in `nb_helpers.py` (running the cells of a notebook, comparing two pictures, checking that the inputs of
+the slow tests are there), `nb_fixtures.py` (the model-loading run of notebook 3, shared by its tests) and `conftest.py`
+(environment settings).
 
 ## Regression tests
 
-48 tests, 40 of which run on GitHub Actions (the 8 marked `slow` do not). They check that the notebooks and the figure
+52 tests, 43 of which run on GitHub Actions (the 9 marked `slow` do not). They check that the notebooks and the figure
 scripts still run, and still reproduce the figures and the numbers stored in `fixtures/`. A figure is compared pixel by
 pixel with its reference picture: at most a mean absolute difference of 0.001, and at most 0.2% of the pixels off by
-more than 0.1. The figures of notebooks 3, 4, 5 and 7 also have a `test_plot_comparison_detects_changes`, which changes
-the data and checks that the comparison then fails, so that it cannot pass by accident.
+more than 0.1. The figures of notebooks 3, 4, 5 and 7 to 10 also have a `test_plot_comparison_detects_changes`, which
+changes the data and checks that the comparison then fails, so that it cannot pass by accident.
 
 | File | Test | What it checks | GitHub Actions |
 |---|---|---|---|
@@ -72,6 +74,10 @@ the data and checks that the comparison then fails, so that it cannot pass by ac
 | | `test_notebook_plot_reproduces_reference` | The plot cell of notebook 9 draws the envelope spectrum like the reference picture, and saves it. | yes |
 | | `test_plot_comparison_detects_changes` | The comparison fails when the V4 model's curve is made 1.5 times larger. | yes |
 | | `test_recompute_matches_fixture` | The spectrum recomputed from the V1 and V4 checkpoints has the stored noise levels and mean curves (within 2%), and the training images give the stored variances and Gaussian bound. | no (slow) |
+| [`test_coding_spectrum.py`](test_coding_spectrum.py) | `test_fixture_is_wellformed` | The stored coding spectrum of notebook 10 has 31 increasing noise levels and, for V1 and V4 and each of the 200 test images, the four terms of the curve at each level (positive errors without and with the responses, non-negative changes made by the responses) and a positive trace of J(x). | yes |
+| | `test_notebook_plot_reproduces_reference` | The plot cell of notebook 10 draws the coding spectrum like the reference picture, and saves it. | yes |
+| | `test_plot_comparison_detects_changes` | The comparison fails when V4's ρ(τ) is made twice larger. | yes |
+| | `test_recompute_matches_fixture` | The coding spectrum recomputed from the V1 and V4 checkpoints (about 7 min on a GPU) has the stored noise levels, the stored mean errors without and with the responses (within 2%) and ½∫ρ dτ (within 1 nat, both ways), and the encoders give the stored traces of J(x) (within 0.1%). | no (slow) |
 | [`test_getting_started_notebooks.py`](test_getting_started_notebooks.py) | `test_notebook_1_builds_fits_saves_and_reloads_an_encoder` | Notebook 1 runs on a tiny fake TinyImageNet: it builds and fits an encoder of 50 neurons, saves it, and the reloaded encoder predicts the same responses. | yes |
 | | `test_notebook_1_checks_the_contract_and_compares_fisher_with_the_teacher` | Notebook 1 checks the encoder against the contract, and compares the leading eigenvectors of its Fisher information with those of the teacher (alignment at k = 1, 5 and 10, between 0 and 1). | yes |
 | | `test_notebook_2_trains_a_diffusion_model_and_computes_g` | Notebook 2 trains a small diffusion model and computes finite G(x) and J(x) of the expected shapes. | yes |
@@ -79,7 +85,7 @@ the data and checks that the comparison then fails, so that it cannot pass by ac
 
 ## Unit tests
 
-12 tests. They check one function on inputs whose answer is known, without stored references, data or checkpoints. They
+14 tests. They check one function on inputs whose answer is known, without stored references, data or checkpoints. They
 all run on GitHub Actions, except the 5 that need `compute_g_per_scale`: they are skipped until the `multigeom` that
 GitHub Actions installs (the package's `main` branch, or `develop` when testing `develop`) has it.
 
@@ -95,5 +101,7 @@ GitHub Actions installs (the package's `main` branch, or `develop` when testing 
 | [`unit_tests/test_per_scale_helpers.py`](unit_tests/test_per_scale_helpers.py) | `test_align_signs_flips_only_signs_to_agree_with_coarser_levels` | `align_signs` (`figures/per_scale.py`, notebooks 7 and 8) only flips signs, makes each eigenvector agree with the same one at the next coarser level, and gives the coarsest a positive sum. | yes |
 | | `test_compute_summary_on_known_records` | `compute_summary` (`figures/per_scale.py`, notebook 7) gives \|cos\| 0 between images with orthogonal eigenvectors and 1 with the same one, and the fraction of images where V4's leading eigenvalue is larger. | yes |
 | | `test_compute_gaussian_env_on_known_variances` | `compute_gaussian_env` (`figures/per_scale.py`, notebook 9), the envelope spectrum of a Gaussian prior, gives Σ_i c_i / (c_i + t) on known variances: the number of directions that vary at tiny noise, ½ per unit-variance direction at t = 1, and tr C / t at huge noise. | yes |
+| | `test_compute_information_on_known_curves` | `compute_information` (`figures/per_scale.py`, notebook 10) gives half the area under the curve of each image (trapezoids over log t), the mean over the images and its standard error, on two piecewise-linear curves of known area. | yes |
+| | `test_compute_centre_on_known_curves` | `compute_centre` (`figures/per_scale.py`, notebook 10) puts a symmetric bump at its centre, and is not moved by a negative value of the curve. | yes |
 | [`test_figures.py`](test_figures.py) | `test_style_keeps_the_notebook_backend_in_a_jupyter_kernel` | Importing `figures.style` in a Jupyter kernel keeps the notebook backend, so figures show as pictures (it switches to Agg only in scripts). | yes |
 | | `test_encoder_checkpoint_gives_the_scores_in_both_layouts` | `encoder_checkpoint` reads the test scores of an encoder checkpoint in both layouts (older paper checkpoints and `NeuralEncoder.save`), and returns None when there is none. | yes |

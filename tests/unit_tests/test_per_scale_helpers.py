@@ -1,5 +1,5 @@
 """
-Unit tests of the helpers of notebooks 7 and 8 (figures/per_scale.py) on inputs whose
+Unit tests of the helpers of notebooks 7 to 10 (figures/per_scale.py) on inputs whose
 answer is known: no data, checkpoints or GPU, and no multigeom newer than the released
 one.
 """
@@ -64,3 +64,32 @@ def test_compute_gaussian_env_on_known_variances():
     # t = 1: 1/2 each; huge noise: the total variance over t
     expected = torch.tensor([2.0, 1.0, 2e-9], dtype=torch.float64)
     torch.testing.assert_close(curve, expected, rtol=1e-6, atol=0)
+
+
+def test_compute_information_on_known_curves():
+    from figures.per_scale import compute_information
+
+    # two images whose curves are 1 and 3 between log t = 0 and 2, then fall linearly
+    # to 0 at log t = 4: their areas are 3 and 9
+    log_t = torch.tensor([0.0, 2.0, 4.0], dtype=torch.float64)
+    curves = torch.tensor([[1.0, 1.0, 0.0], [3.0, 3.0, 0.0]], dtype=torch.float64)
+    mean, sem = compute_information(curves, log_t)
+
+    # half of each area (1.5 and 4.5 nats), their mean, and its standard error (the
+    # standard deviation of the two, 3 / √2, over √2)
+    assert abs(mean - 3.0) < 1e-12
+    assert abs(sem - 1.5) < 1e-12
+
+
+def test_compute_centre_on_known_curves():
+    from figures.per_scale import compute_centre
+
+    # a bump symmetric about log t = 3, and the same bump with a negative value at
+    # log t = 0, which must not move the centre
+    log_t = torch.arange(6, dtype=torch.float64)
+    bump = torch.tensor([0.0, 0.0, 1.0, 2.0, 1.0, 0.0], dtype=torch.float64)
+    dipped = torch.tensor([-5.0, 0.0, 1.0, 2.0, 1.0, 0.0], dtype=torch.float64)
+
+    # both centred at 3
+    assert abs(compute_centre(bump, log_t) - 3.0) < 1e-12
+    assert abs(compute_centre(dipped, log_t) - 3.0) < 1e-12

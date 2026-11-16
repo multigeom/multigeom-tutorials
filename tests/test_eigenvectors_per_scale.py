@@ -47,7 +47,9 @@ from nb_helpers import (  # noqa: E402
     BAD_PIXEL_FRACTION,
     MEAN_ABS_TOL,
     PER_SCALE_FIXTURES,
+    FROG_IMAGE,
     REPO,
+    have_inputs,
     image_difference,
     per_scale_inputs,
     render_per_scale_plot,
@@ -115,17 +117,6 @@ def test_plot_comparison_detects_changes(tmp_path):
     assert mean_abs >= MEAN_ABS_TOL or bad >= BAD_PIXEL_FRACTION
 
 
-def have_inputs() -> bool:
-    """The checkpoints and the image the computation needs (not available on GitHub)."""
-    needed = [REPO / "data/tiny-imagenet-200/train/n01644900/images/n01644900_0.JPEG"]
-    for area in AREAS:
-        needed += [
-            REPO / f"runs/encoders/inception/{area}/best_model.pt",
-            REPO / f"runs/diffusion/inception/{area}/final_model.pt",
-        ]
-    return all(path.exists() for path in needed)
-
-
 @pytest.mark.slow
 def test_recompute_matches_fixture():
     """
@@ -134,7 +125,7 @@ def test_recompute_matches_fixture():
     on another; only the leading eigenvector at coarse noise levels is stable enough to
     compare across devices, and the leading eigenvalue to within 30%.
     """
-    if not have_inputs():
+    if not have_inputs([FROG_IMAGE]):
         pytest.skip("needs runs/ checkpoints and TinyImageNet (see README)")
 
     # the notebook's cells, for the frog, from the repository root

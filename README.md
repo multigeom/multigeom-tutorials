@@ -37,6 +37,7 @@ large and unreadable in diffs, do not clutter the package history.
 | `7_eigenvectors_of_G_per_scale` | Leading eigenvectors of M_t(x), the integrand of G(x), at each noise level, for the example images of the landing page (V1 and V4). | TinyImageNet, checkpoints, GPU, a `multigeom` with `compute_g_per_scale` | about 6 min |
 | `8_stimulus_features_per_scale` | Leading eigenvectors of the stimulus features M_t^env(x) = (1/t) E[Cov(X \| x_t)] at each noise level, from the unconditional model, next to those of M_t(x) of notebook 7, and how much they align. | TinyImageNet, checkpoints, GPU, a `multigeom` with `compute_env_per_scale` | about 20 min |
 | `9_envelope_spectrum` | The envelope spectrum ρ^env(τ) = E[(1/t) ‖x̂(x_t) − x‖²] of the test images against log t, an upper bound on the information density of the responses at each scale, with the Gaussian bound of the training images. | TinyImageNet, checkpoints, GPU, a `multigeom` with `compute_env_spectrum` | about 2 min |
+| `10_coding_spectrum` | The coding spectrum ρ(τ) of V1 and V4, what the responses take off the error of the denoiser at each scale, from stimulus–response pairs of the test images, under the envelope spectrum; ½∫ρ dτ = I(R; X), the information of the responses about the image, for each area. | TinyImageNet, checkpoints, GPU, a `multigeom` with `compute_coding_spectrum` | about 7 min |
 
 Start with notebook 0. Notebooks 1 and 2 need only TinyImageNet. Notebooks 3 to 6 reproduce the paper's analyses and need the
 trained checkpoints and TinyImageNet below (the notebooks download them).
