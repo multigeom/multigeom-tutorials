@@ -163,7 +163,7 @@ Check that notebook 9 still computes and plots the envelope spectrum, the error 
 |---|---|---|
 | `fixture_is_wellformed` | Verify that the stored envelope spectrum of notebook 9 has 31 increasing noise levels, a positive curve for each of the 200 test images and both models, the variances of the training images largest first, and a Gaussian bound that decreases from below the number of pixels P. | yes |
 | `notebook_plot_reproduces_reference` | Verify that the plot cell of notebook 9 draws the envelope spectrum like the reference picture, and saves it. | yes |
-| `plot_comparison_detects_changes` | Verify that, with the V4 model's envelope spectrum (the denoising error without the responses at each noise level), ρ^env(τ), multiplied by 1.5 at every noise level, the envelope spectrum figure differs from the reference picture beyond the tolerance of `test_notebook_plot_reproduces_reference` (mean \|difference\| ≥ 0.001, or ≥ 0.2% of the pixels off by more than 0.1), so that that test cannot pass by accident. | yes |
+| `plot_comparison_detects_changes` | Verify that, with the V1 model's envelope spectrum (the denoising error without the responses at each noise level), ρ^env(τ), multiplied by 1.5 at every noise level, the envelope spectrum figure differs from the reference picture beyond the tolerance of `test_notebook_plot_reproduces_reference` (mean \|difference\| ≥ 0.001, or ≥ 0.2% of the pixels off by more than 0.1), so that that test cannot pass by accident. | yes |
 | `recompute_matches_fixture` | Verify that the spectrum recomputed from the V1 and V4 checkpoints has the stored noise levels and mean curves (within 2%), and the training images give the stored variances and Gaussian bound. | no (slow) |
 
 #### Notebook 10: [coding_spectrum](test_coding_spectrum.py)
@@ -172,10 +172,10 @@ Check that notebook 10 still computes and plots the coding spectrum, what the re
 
 | Test | What it checks | GitHub Actions |
 |---|---|---|
-| `fixture_is_wellformed` | Verify that the stored coding spectrum of notebook 10 has 31 increasing noise levels and, for V1 and V4 and each of the 200 test images, the four terms of the curve at each level (positive errors without and with the responses, non-negative changes made by the responses) and a positive trace of the Fisher information of the responses J(x). | yes |
+| `fixture_is_wellformed` | Verify that the stored coding spectrum of notebook 10 has 31 increasing noise levels and, for V1 and V4 and each of the 200 test images, the four terms of the curve at each level (positive errors without and with the responses, non-negative changes made by the responses). | yes |
 | `notebook_plot_reproduces_reference` | Verify that the plot cell of notebook 10 draws the coding spectrum like the reference picture, and saves it. | yes |
 | `plot_comparison_detects_changes` | Verify that, with V4's coding spectrum (what the responses take off the denoising error at each noise level), ρ(τ), doubled at every noise level (its error with the responses moved twice as far from the error without them), the coding spectrum figure differs from the reference picture beyond the tolerance of `test_notebook_plot_reproduces_reference` (mean \|difference\| ≥ 0.001, or ≥ 0.2% of the pixels off by more than 0.1), so that that test cannot pass by accident. | yes |
-| `recompute_matches_fixture` | Verify that the coding spectrum recomputed from the V1 and V4 checkpoints (about 7 min on a GPU) has the stored noise levels, the stored mean errors without and with the responses (within 2%) and the mutual information between the responses and the image, ½∫ρ dτ (within 1 nat, both ways), and the encoders give the stored traces of the Fisher information of the responses J(x) (within 0.1%). | no (slow) |
+| `recompute_matches_fixture` | Verify that the coding spectrum recomputed from the V1 and V4 checkpoints (about 7 min on a GPU) has the stored noise levels, the stored mean errors without and with the responses (within 2%) and the mutual information between the responses and the image, ½∫ρ dτ (within 1 nat). | no (slow) |
 
 #### [figures](test_figures.py)
 
@@ -193,7 +193,7 @@ need a function newer than the `multigeom` that GitHub Actions installs (the pac
 when testing `develop`) are skipped there until it has it.
 
 <!-- unit-tests:start -->
-16 tests: 16 run on GitHub Actions (6 of them skipped while what they need is missing). Plus 5 of the multigeom package.
+15 tests: 15 run on GitHub Actions (6 of them skipped while what they need is missing). Plus 5 of the multigeom package.
 
 #### Notebooks 0, 1, 2, 3, 4, 7, 8: [eigenpairs](unit_tests/test_eigenpairs.py)
 
@@ -232,7 +232,6 @@ Check the summary and integration helpers shared by notebooks 7 to 10 on inputs 
 | `compute_summary_on_known_records` | Verify that `compute_summary` (`figures/per_scale.py`, notebook 7) gives an absolute cosine \|cos\| of 0 between images with orthogonal eigenvectors and 1 with the same one, and the fraction of images where V4's leading eigenvalue is larger. | yes |
 | `compute_gaussian_env_on_known_variances` | Verify that `compute_gaussian_env` (`figures/per_scale.py`, notebook 9), the envelope spectrum of a Gaussian prior, gives the sum over the directions of their variance c_i over c_i plus the noise variance t, Σ_i c_i / (c_i + t), on known variances: the number of directions that vary at tiny noise, ½ per unit-variance direction at t = 1, and the total variance over t, tr C / t, at huge noise. | yes |
 | `compute_information_on_known_curves` | Verify that `compute_information` (`figures/per_scale.py`, notebook 10) gives half the area under the curve of each image (trapezoids over log t), the mean over the images and its standard error, on two piecewise-linear curves of known area. | yes |
-| `compute_centre_on_known_curves` | Verify that `compute_centre` (`figures/per_scale.py`, notebook 10) puts a symmetric bump at its centre, and is not moved by a negative value of the curve. | yes |
 
 #### Notebook 8: [env, in the multigeom package](https://github.com/multigeom/multigeom/blob/main/tests/unit/test_env.py)
 

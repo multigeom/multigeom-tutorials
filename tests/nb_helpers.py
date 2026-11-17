@@ -479,7 +479,7 @@ ENVELOPE_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "envelope_spe
 SETUP9 = '"prior_areas": ["V1", "V4"],'
 SPECTRUM9 = "spectra[area] = compute_env_spectrum("
 GAUSSIAN9 = "variances = compute_prior_variances("
-PLOT9 = "plot_env_spectrum(spectra, gaussian, variances, PARAMS)"
+PLOT9 = "plot_env_spectrum(spectra, gaussian, PARAMS)"
 
 
 def envelope_inputs(path: Path | None = None) -> tuple[dict, "object", "object"]:
@@ -553,12 +553,11 @@ def run_notebook9() -> dict:
 NOTEBOOK10 = REPO / "notebooks" / "10_coding_spectrum.ipynb"
 CODING_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "coding_spectrum"
 
-# Lines of the code cells of notebook 10 (setup, spectrum, fine-end limit, plot); its
+# Lines of the code cells of notebook 10 (setup, spectrum, plot); its
 # functions are in figures/per_scale.py.
 SETUP10 = '"areas": ["V1", "V4"],'
 SPECTRUM10 = "spectra[area] = compute_coding_spectrum("
-FISHER10 = "area: compute_fisher_traces(images, encoders[area], sigma, device)"
-PLOT10 = "plot_coding_spectrum(spectra, traces, PARAMS)"
+PLOT10 = "plot_coding_spectrum(spectra, PARAMS)"
 
 # the per-image terms of a coding spectrum, as multigeom.CodingSpectrumOutput holds them
 CODING_TERMS = ("env", "coded", "gain", "sampled")
@@ -583,32 +582,29 @@ def coding_record(log_tau, env, coded, gain, sampled) -> "object":
     return record
 
 
-def coding_inputs(path: Path | None = None) -> tuple[dict, dict]:
+def coding_inputs(path: Path | None = None) -> dict:
     """
-    (spectra, traces) like those of notebook 10, from the stored fixture: spectra maps
-    each area to its coding spectrum, traces to the trace of J(x) of each image.
+    The spectra of notebook 10, from the stored fixture: each area mapped to its coding
+    spectrum.
     """
     import numpy as np
     import torch
 
-    # the stored terms and traces of each area
+    # the stored terms of each area
     data = np.load(path or CODING_FIXTURES / "coding_spectrum_data.npz")
     log_tau = torch.from_numpy(data["log_t"])
-    spectra, traces = {}, {}
+    spectra = {}
     for area in AREAS:
         terms = {
             name: torch.from_numpy(data[f"{area}_{name}"]) for name in CODING_TERMS
         }
         spectra[area] = coding_record(log_tau, **terms)
-        traces[area] = torch.from_numpy(data[f"{area}_traces"])
-    return spectra, traces
+    return spectra
 
 
-def render_coding_plot(
-    spectra: dict, traces: dict, out_png: Path, figure_dir: Path
-) -> dict:
+def render_coding_plot(spectra: dict, out_png: Path, figure_dir: Path) -> dict:
     """
-    Run notebook 10's plot cell on (spectra, traces), with the figure saved under
+    Run notebook 10's plot cell on `spectra`, with the figure saved under
     `figure_dir`, and save it to `out_png` (100 dpi). Returns the namespace of the cell.
     """
     import matplotlib
@@ -617,22 +613,16 @@ def render_coding_plot(
     import matplotlib.pyplot as plt
     import torch
 
-    from figures.per_scale import (
-        compute_centre,
-        compute_information,
-        plot_coding_spectrum,
-    )
+    from figures.per_scale import compute_information, plot_coding_spectrum
 
     # the names of the setup cell that the plot cell uses, and the settings of the plot
     plt.close("all")
     namespace = {
         "Path": Path,
         "torch": torch,
-        "compute_centre": compute_centre,
         "compute_information": compute_information,
         "plot_coding_spectrum": plot_coding_spectrum,
         "spectra": spectra,
-        "traces": traces,
     }
     namespace["PARAMS"] = {
         "encoder": "inception",
@@ -651,8 +641,8 @@ def render_coding_plot(
 
 def run_notebook10() -> dict:
     """
-    Namespace after running notebook 10's setup, spectrum and fine-end-limit cells
+    Namespace after running notebook 10's setup and spectrum cells
     (needs runs/, TinyImageNet and the multigeom with compute_coding_spectrum; about
     7 min on a GPU).
     """
-    return run_cells({}, SETUP10, SPECTRUM10, FISHER10, notebook=NOTEBOOK10)
+    return run_cells({}, SETUP10, SPECTRUM10, notebook=NOTEBOOK10)

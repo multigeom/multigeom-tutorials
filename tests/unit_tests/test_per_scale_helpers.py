@@ -108,21 +108,3 @@ def test_compute_information_on_known_curves():
     # standard deviation of the two, 3 / √2, over √2)
     assert abs(mean - 3.0) < 1e-12
     assert abs(sem - 1.5) < 1e-12
-
-
-def test_compute_centre_on_known_curves():
-    """
-    Verify that `compute_centre` (`figures/per_scale.py`, notebook 10) puts a
-    symmetric bump at its centre, and is not moved by a negative value of the curve.
-    """
-    from figures.per_scale import compute_centre
-
-    # a bump symmetric about log t = 3, and the same bump with a negative value at
-    # log t = 0, which must not move the centre
-    log_t = torch.arange(6, dtype=torch.float64)
-    bump = torch.tensor([0.0, 0.0, 1.0, 2.0, 1.0, 0.0], dtype=torch.float64)
-    dipped = torch.tensor([-5.0, 0.0, 1.0, 2.0, 1.0, 0.0], dtype=torch.float64)
-
-    # both centred at 3
-    assert abs(compute_centre(bump, log_t) - 3.0) < 1e-12
-    assert abs(compute_centre(dipped, log_t) - 3.0) < 1e-12

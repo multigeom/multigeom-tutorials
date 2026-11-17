@@ -10,15 +10,11 @@ eigenvectors, and the envelope and coding spectra.
     plot_per_scale      the figure of one image: each block's eigenvectors per level
     compute_summary     how the leading eigenvector depends on the image (notebook 7)
     plot_summary
-    compute_alignment   the alignment of M_t(x) with M_t^env(x) per level (notebook 8)
-    plot_alignment
     load_test_images    the test images of notebook 4 (notebook 9)
     compute_prior_variances   the variances of the training images (notebook 9)
     compute_gaussian_env      the envelope spectrum of a Gaussian prior (notebook 9)
     plot_env_spectrum
-    compute_fisher_traces     trace J(x) of each image, the fine-end limit (notebook 10)
     compute_information       ½ ∫ ρ dτ per image: its mean and standard error
-    compute_centre            where a curve sits along log t
     plot_coding_spectrum
 
 The functions of the package are looked up when they are called (`multigeom.<name>`), so
@@ -390,81 +386,7 @@ def plot_summary(summary: dict, params: dict) -> tuple[plt.Figure, dict]:
     n_images = summary[f"values_{areas[0]}"].shape[0]
     fig.suptitle(
         f"Across the {n_images} example images ({params['encoder']}, "
-        f"{params['n_samples']} samples per level)",
-        fontsize=11,
-        y=1.03,
-    )
-    return fig, data
-
-
-def compute_alignment(env: dict, results: dict, areas: list, k: int) -> dict:
-    """
-    Per noise level and example image, the subspace alignment of the top-k eigenvectors
-    of M_t(x) of each area with those of M_t^env(x), (1/k) ‖V_tᵀ V_env‖², between 0
-    (orthogonal) and 1 (the same subspace): {"log_t": [J], area: [images, J]}.
-    """
-    # the image names, and the noise levels
-    names = list(env)
-    alignment = {"log_t": env[names[0]].log_tau}
-
-    # the alignment of each area with the stimulus features, image by image, level by
-    # level
-    for area in areas:
-        alignment[area] = torch.tensor(
-            [
-                [
-                    subspace_alignment(
-                        results[area][name].eigenvectors[level],
-                        env[name].eigenvectors[level],
-                        top_k=k,
-                    )
-                    for level in range(len(alignment["log_t"]))
-                ]
-                for name in names
-            ]
-        )
-    return alignment
-
-
-def plot_alignment(alignment: dict, params: dict, k: int) -> tuple[plt.Figure, dict]:
-    """
-    The alignment of the top-k eigenvectors of M_t(x) with those of M_t^env(x) against
-    tau = log t, one panel per area: every image (thin) and their mean (thick), with
-    the alignment of random subspaces, k / P, for reference. Returns the figure and the
-    data it shows.
-    """
-    # the data drawn: per area the alignment of each image and the mean
-    areas = params["areas"]
-    data = {"log_t": alignment["log_t"].numpy()}
-    for area in areas:
-        data[area] = {
-            "images": alignment[area].numpy(),
-            "mean": alignment[area].mean(dim=0).numpy(),
-        }
-
-    # one panel per area, side by side, on the same scale
-    fig, axes = plt.subplots(
-        1, len(areas), figsize=(5.5 * len(areas), 3.6), dpi=params["screen_dpi"]
-    )
-    chance = k / 64**2
-    for ax, area in zip(axes, areas):
-        # every image (thin), and their mean (thick)
-        ax.plot(data["log_t"], data[area]["images"].T, color=BLOCK_COLORS[area], lw=0.5)
-        ax.plot(data["log_t"], data[area]["mean"], color=BLOCK_COLORS[area], lw=2.5)
-
-        # random subspaces, and the labels
-        ax.axhline(chance, color="0.5", ls=":", lw=1)
-        ax.set_ylim(0, 1.02)
-        ax.set_xlabel(r"$\tau = \log t$")
-        ax.set_ylabel(f"alignment of the top {k}\neigenvectors, {area} vs stimulus")
-
-    # the panel letters, and the title
-    for letter, ax in zip("ABCD", axes):
-        panel_label(fig, ax, letter)
-    fig.suptitle(
-        r"Alignment of $M_t(x)$ with the stimulus features $M_t^{\rm env}(x)$"
-        f" ({params['encoder']}, {alignment[areas[0]].shape[0]} images; dotted: "
-        "random subspaces)",
+        f"{params['n_samples']} samples per noise scale)",
         fontsize=11,
         y=1.03,
     )
@@ -511,138 +433,62 @@ def compute_gaussian_env(variances: torch.Tensor, log_t: torch.Tensor) -> torch.
 
 
 def plot_env_spectrum(
-    spectra: dict, gaussian: torch.Tensor, variances: torch.Tensor, params: dict
+    spectra: dict, gaussian: torch.Tensor, params: dict
 ) -> tuple[plt.Figure, dict]:
     """
-    The envelope spectrum against tau = log t. A (log scale): for the null token of each
-    model of `spectra` (name → curves of the images, with `log_tau` and `values`), the
-    mean over the images, and the 10–90% band of the images for the first; the Gaussian
-    bound `gaussian`; and its limits, the number of pixels P and tr C / t. B: each mean
-    over the Gaussian bound. Returns the figure and the data it shows.
+    The envelope spectrum against tau = log t, on a log scale, for the null token of the
+    first model of `spectra` (name → curves of the images, with `log_tau` and
+    `values`): the mean over the images, the 10–90% band of the images, and the
+    Gaussian bound `gaussian`. Returns the figure and the data it shows.
     """
-    # the data drawn: per model the mean, the band of the images and the ratio
-    first = next(iter(spectra.values()))
-    log_t = first.log_tau.double()
-    data = {"log_t": log_t.numpy(), "gaussian": gaussian.numpy()}
-    data["n_pixels"], data["coarse_limit"] = (
-        len(variances),
-        (variances.sum() / log_t.exp()).numpy(),
+    # the data drawn: the noise scales, the Gaussian bound, the mean and the band
+    name, first = next(iter(spectra.items()))
+    values = first.values.double()
+    data = {
+        "log_t": first.log_tau.double().numpy(),
+        "gaussian": gaussian.numpy(),
+        "mean": values.mean(dim=0).numpy(),
+        "band": values.quantile(torch.tensor([0.1, 0.9]).double(), dim=0).numpy(),
+    }
+
+    # one panel: the band of the images, their mean, and the Gaussian bound
+    fig, ax = plt.subplots(figsize=(6.5, 4.4), dpi=params["screen_dpi"])
+    color = SPECTRUM_COLORS[name]
+    low, high = data["band"]
+    ax.fill_between(
+        data["log_t"],
+        low,
+        high,
+        color=color,
+        alpha=0.15,
+        lw=0,
+        label="10–90% of the images",
     )
-    for name, record in spectra.items():
-        values = record.values.double()
-        data[name] = {
-            "mean": values.mean(dim=0).numpy(),
-            "band": values.quantile(torch.tensor([0.1, 0.9]).double(), dim=0).numpy(),
-            "ratio": (values.mean(dim=0) / gaussian).numpy(),
-        }
-
-    # two panels side by side
-    fig, (ax_curve, ax_ratio) = plt.subplots(
-        1, 2, figsize=(12, 4.2), dpi=params["screen_dpi"]
-    )
-
-    # A: the curves of the null tokens, the band of the images of the first one
-    for index, name in enumerate(spectra):
-        style = "-" if index == 0 else "--"
-        color = SPECTRUM_COLORS[name]
-        ax_curve.plot(
-            data["log_t"],
-            data[name]["mean"],
-            style,
-            color=color,
-            lw=2,
-            label=f"{name} model",
-        )
-        if index == 0:
-            low, high = data[name]["band"]
-            ax_curve.fill_between(
-                data["log_t"],
-                low,
-                high,
-                color=color,
-                alpha=0.15,
-                lw=0,
-                label=f"{name}: 10–90% of the images",
-            )
-
-    # A: the Gaussian bound, and its two limits
-    ax_curve.plot(
+    ax.plot(data["log_t"], data["mean"], color=color, lw=2, label="mean of the images")
+    ax.plot(
         data["log_t"],
         data["gaussian"],
         color=SPECTRUM_COLORS["gaussian"],
         lw=1.5,
-        label="Gaussian bound",
+        label="Gaussian bound: images assumed Gaussian,\nwith the pixel covariance"
+        " of the training images",
     )
-    ax_curve.axhline(
-        data["n_pixels"], color=LIMIT_COLOR, ls=":", lw=1, label="P (no denoising)"
-    )
-    ax_curve.plot(
-        data["log_t"],
-        data["coarse_limit"],
-        ":",
-        color=LIMIT_COLOR,
-        lw=1.5,
-        label="tr C / t",
-    )
-    ax_curve.set_yscale("log")
-    ax_curve.set_ylim(data[next(iter(spectra))]["mean"].min() / 3, data["n_pixels"] * 3)
-    ax_curve.set_xlabel(r"$\tau = \log t$")
-    ax_curve.set_ylabel(
+    ax.set_yscale("log")
+    ax.set_xlabel(r"$\tau = \log t$")
+    ax.set_ylabel(
         r"$\rho^{\rm env}(\tau) = \mathbb{E}\,\frac{1}{t}\,\|\hat x(x_t) - x\|^2$"
     )
-    ax_curve.legend(fontsize=8, frameon=False, loc="lower left")
+    ax.legend(fontsize=8, frameon=False, loc="lower left")
 
-    # B: each curve over the Gaussian bound
-    for index, name in enumerate(spectra):
-        style = "-" if index == 0 else "--"
-        ax_ratio.plot(
-            data["log_t"],
-            data[name]["ratio"],
-            style,
-            color=SPECTRUM_COLORS[name],
-            lw=2,
-            label=f"{name} model",
-        )
-    ax_ratio.axhline(
-        1.0, color=SPECTRUM_COLORS["gaussian"], lw=1.5, label="Gaussian bound"
-    )
-    ax_ratio.set_xlabel(r"$\tau = \log t$")
-    ax_ratio.set_ylabel("learned curve over\nthe Gaussian bound")
-    ax_ratio.legend(fontsize=8, frameon=False, loc="upper left")
-
-    # the panel letters, and the title
-    for letter, ax in zip("AB", (ax_curve, ax_ratio)):
-        panel_label(fig, ax, letter)
-    n_images = len(first.values)
+    # the title
     fig.suptitle(
-        f"Envelope spectrum of the {n_images} test images ({params['encoder']} models,"
-        f" {params['n_noise']} noisy versions per image and level)",
+        f"Envelope spectrum of the {len(values)} test images ({params['encoder']}"
+        f" {name} model,\n{params['n_noise']} noisy versions per image and noise"
+        " scale)",
         fontsize=11,
-        y=1.03,
+        y=1.04,
     )
     return fig, data
-
-
-def compute_fisher_traces(
-    images: torch.Tensor, encoder: torch.nn.Module, sigma: float, device: torch.device
-) -> torch.Tensor:
-    """
-    The trace of the Fisher information J(x) = (1/σ²) J_fᵀ J_f of the responses about
-    each image [n], from `multigeom.compute_fisher`: its eigenvalues add up to the
-    trace, since J(x) has at most n_neurons of them.
-    """
-    # the eigenvalues of J(x) for each image, summed
-    traces = [
-        multigeom.compute_fisher(
-            image=image.unsqueeze(0),
-            encoder=encoder,
-            sigma=sigma,
-            top_k=encoder.n_neurons,
-            device=device,
-        ).eigenvalues.sum()
-        for image in images
-    ]
-    return torch.stack(traces).double().cpu()
 
 
 def compute_information(
@@ -657,32 +503,15 @@ def compute_information(
     return float(integrals.mean()), float(integrals.std() / len(integrals) ** 0.5)
 
 
-def compute_centre(curve: torch.Tensor, log_t: torch.Tensor) -> float:
+def plot_coding_spectrum(spectra: dict, params: dict) -> tuple[plt.Figure, dict]:
     """
-    Where the curve [J] sits along log t: its mean log t, weighted by the curve (its
-    negative values, which no exact curve has, count as zero).
+    The coding spectrum ρ(τ) of each area of `spectra` (area → CodingSpectrumOutput)
+    against tau = log t, on the same axes as the envelope spectrum ρ^env(τ) of the
+    first area's model, on a log scale (noise scales where ρ is not positive are left
+    out); the legend gives ½ ∫ ρ dτ of each area. Returns the figure and the data it
+    shows.
     """
-    # the weights, and the weighted mean of log t
-    weights = curve.double().clamp(min=0)
-    log_t = log_t.double()
-    return float(
-        torch.trapezoid(log_t * weights, log_t) / torch.trapezoid(weights, log_t)
-    )
-
-
-def plot_coding_spectrum(
-    spectra: dict, traces: dict, params: dict
-) -> tuple[plt.Figure, dict]:
-    """
-    The coding spectrum of each area of `spectra` (area → CodingSpectrumOutput) against
-    tau = log t. A (log scale): ρ(τ) of each area under the envelope ρ^env(τ), with the
-    fine-end limit t · <trace J(x)> from `traces` (area → [n] traces of J), drawn up to
-    log t = −4; levels where ρ is not positive are left out. B (linear scale, whose
-    area is 2 I(R; X)): ρ from the errors (the note's eq. 7), from what the responses
-    change, and the curve of notebook 7's estimator (responses drawn given the
-    denoised image). Returns the figure and the data it shows.
-    """
-    # the data drawn: the noise levels, the envelope, and per area the three curves
+    # the data drawn: the noise scales, the envelope, and ρ and ½ ∫ ρ dτ of each area
     areas = list(spectra)
     log_t = spectra[areas[0]].log_tau.double()
     data = {"log_t": log_t.numpy()}
@@ -691,91 +520,42 @@ def plot_coding_spectrum(
         record = spectra[area]
         data[area] = {
             "rho": record.rho.double().numpy(),
-            "gain": record.rho_gain.double().numpy(),
-            "sampled": record.rho_sampled.double().numpy(),
-            "limit": (log_t.exp() * traces[area].mean()).numpy(),
             "information": compute_information(record.env - record.coded, log_t)[0],
         }
 
-    # two panels side by side
-    fig, (ax_log, ax_lin) = plt.subplots(
-        1, 2, figsize=(13, 4.4), dpi=params["screen_dpi"]
-    )
-
-    # A: the envelope, ρ of each area where positive, and the fine-end limits
-    ax_log.plot(
+    # one panel: the envelope, then ρ of each area where it is positive
+    fig, ax = plt.subplots(figsize=(6.5, 4.4), dpi=params["screen_dpi"])
+    ax.plot(
         data["log_t"],
         data["env"],
         color=SPECTRUM_COLORS["V1"],
         lw=2,
-        label=r"$\rho^{\rm env}$",
+        label=r"$\rho^{\rm env}(\tau)$",
     )
     for area in areas:
-        color, rho = AREA_COLORS[area], data[area]["rho"]
+        rho = data[area]["rho"]
         positive = rho > 0
-        ax_log.plot(
+        ax.plot(
             data["log_t"][positive],
             rho[positive],
             "o-",
             ms=3,
-            color=color,
+            color=AREA_COLORS[area],
             lw=2,
-            label=rf"$\rho$ {area}",
+            label=rf"$\rho(\tau)$ {area}: $\frac{{1}}{{2}}\int \rho\, d\tau$ = "
+            f"{data[area]['information']:.1f} nats",
         )
-        fine = data["log_t"] <= -4
-        ax_log.plot(
-            data["log_t"][fine],
-            data[area]["limit"][fine],
-            ":",
-            color=color,
-            lw=1.5,
-            label=f"t <trace J> {area}",
-        )
-    ax_log.set_yscale("log")
-    ax_log.set_xlabel(r"$\tau = \log t$")
-    ax_log.set_ylabel(r"$\rho(\tau)$ and $\rho^{\rm env}(\tau)$")
-    ax_log.legend(fontsize=8, frameon=False, loc="upper right")
+    ax.set_yscale("log")
+    ax.set_xlabel(r"$\tau = \log t$")
+    ax.set_ylabel(r"$\rho(\tau)$ and $\rho^{\rm env}(\tau)$")
+    ax.legend(fontsize=8, frameon=False, loc="upper right")
 
-    # B: the three ways to the curve, for each area, on a linear scale
-    for area in areas:
-        color, curves = AREA_COLORS[area], data[area]
-        ax_lin.plot(
-            data["log_t"],
-            curves["rho"],
-            "-",
-            color=color,
-            lw=2,
-            label=f"{area}: errors (eq. 7), ½∫ = {curves['information']:.1f} nats",
-        )
-        ax_lin.plot(
-            data["log_t"],
-            curves["gain"],
-            "--",
-            color=color,
-            lw=1.2,
-            label=f"{area}: what the responses change",
-        )
-        ax_lin.plot(
-            data["log_t"],
-            curves["sampled"],
-            ":",
-            color=color,
-            lw=1.5,
-            label=f"{area}: notebook 7's estimator",
-        )
-    ax_lin.axhline(0.0, color=LIMIT_COLOR, lw=0.8)
-    ax_lin.set_xlabel(r"$\tau = \log t$")
-    ax_lin.set_ylabel(r"$\rho(\tau)$")
-    ax_lin.legend(fontsize=7.5, frameon=False, loc="upper right")
-
-    # the panel letters, and the title
-    for letter, ax in zip("AB", (ax_log, ax_lin)):
-        panel_label(fig, ax, letter)
-    n_images = len(spectra[areas[0]].env)
+    # the title
     fig.suptitle(
-        f"Coding spectrum of the {n_images} test images ({params['encoder']} models, "
-        f"{params['n_noise']} noisy versions and responses per image and level)",
+        f"Coding spectrum of the {len(spectra[areas[0]].env)} test images"
+        f" ({params['encoder']} models,\n{params['n_noise']} noisy versions and"
+        " responses per image and noise scale)",
         fontsize=11,
-        y=1.03,
+        y=1.04,
     )
     return fig, data

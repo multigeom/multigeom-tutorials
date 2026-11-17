@@ -1,13 +1,12 @@
 """
 Regenerate the fixtures of notebook 10 (the coding spectrum) from the trained
-checkpoints and the data, by running the notebook's own cells (setup, spectrum and
-fine-end limit; then the plot):
+checkpoints and the data, by running the notebook's own cells (setup and spectrum;
+then the plot):
 
     tests/fixtures/coding_spectrum/coding_spectrum_data.npz
         tau = log t at the 31 noise levels; for the V1 and V4 models, the four terms of
         every test image (the errors without and with the responses, what the
-        responses change, and notebook 7's estimate) and the trace of J(x) of every
-        test image
+        responses change, and notebook 7's estimate)
     tests/fixtures/coding_spectrum/coding_spectrum_reference.png
         the notebook's figure rendered from that data
 
@@ -39,16 +38,15 @@ from nb_helpers import (  # noqa: E402
 
 def get_fixture_data(namespace: dict) -> dict:
     """
-    The arrays of the fixture, from the namespace of notebook 10 after its spectrum and
-    fine-end-limit cells.
+    The arrays of the fixture, from the namespace of notebook 10 after its spectrum
+    cell.
     """
-    # the noise levels, then the four terms and the traces of J(x) of each area
+    # the noise levels, then the four terms of each area
     spectra = namespace["spectra"]
     data = {"log_t": next(iter(spectra.values())).log_tau.numpy()}
     for area, record in spectra.items():
         for name in CODING_TERMS:
             data[f"{area}_{name}"] = getattr(record, name).numpy()
-        data[f"{area}_traces"] = namespace["traces"][area].numpy()
     return data
 
 
@@ -61,7 +59,7 @@ def main():
     # the notebook's figure, drawn from the stored data
     reference = CODING_FIXTURES / "coding_spectrum_reference.png"
     with tempfile.TemporaryDirectory() as tmp:
-        render_coding_plot(*coding_inputs(), reference, Path(tmp))
+        render_coding_plot(coding_inputs(), reference, Path(tmp))
     print("wrote", CODING_FIXTURES)
 
 

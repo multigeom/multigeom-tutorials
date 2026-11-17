@@ -118,7 +118,7 @@ def test_notebook_plot_reproduces_reference(tmp_path):
 
 def test_plot_comparison_detects_changes(tmp_path):
     """
-    Verify that, with the V4 model's envelope spectrum (the denoising error
+    Verify that, with the V1 model's envelope spectrum (the denoising error
     without the responses at each noise level), ρ^env(τ), multiplied by 1.5 at every
     noise level, the envelope spectrum figure differs from the reference picture
     beyond the tolerance of `test_notebook_plot_reproduces_reference` (mean
@@ -127,8 +127,8 @@ def test_plot_comparison_detects_changes(tmp_path):
     """
     spectra, variances, gaussian = envelope_inputs()
 
-    # the V4 model's error, made 1.5 times larger
-    spectra["V4"].values = spectra["V4"].values * 1.5
+    # the V1 model's error, the one drawn, made 1.5 times larger
+    spectra["V1"].values = spectra["V1"].values * 1.5
     mean_abs, bad = plot_difference(spectra, variances, gaussian, tmp_path)
     assert mean_abs >= MEAN_ABS_TOL or bad >= BAD_PIXEL_FRACTION
 
