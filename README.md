@@ -6,12 +6,31 @@ Tutorial notebooks for [`multigeom`](https://github.com/multigeom/multigeom), th
 estimates the multi-scale Fisher information geometry of neural population codes with conditional diffusion models
 (paper: *A multi-scale information geometry reveals the structure of mutual information in neural populations*).
 
-The package holds the code. This repository holds what a user needs to see it work on real use cases: five notebooks that
-bring your own encoder or reproduce figures of the paper, the data download scripts, and the tests that run the notebooks
-and compare their figures with stored references. It is separate from the package so that notebook outputs, which are
+The package holds the code. This repository holds what a user needs to see it work: the notebooks, the data download
+scripts, and the tests that run the notebooks and compare their figures with stored references. The notebooks form three
+groups. Foundations computes each quantity on one neuron and a one-dimensional stimulus. Getting started applies the
+package to encoders of images. Reproduce the paper redraws the figures of the paper. The repository is separate from the package so that notebook outputs, which are
 large and unreadable in diffs, do not clutter the package history.
 
 ## Notebooks
+
+**Foundations** (the quantities, on one neuron and a one-dimensional stimulus):
+
+The stimulus x lies on [-3, 3] with a uniform prior. A neuron responds with its tuning curve plus Gaussian noise of
+standard deviation 0.1. The bell-shaped neuron has the tuning curve exp(-x²/2). Its monotonic twin follows the same curve
+up to the peak at x = 0 and then keeps rising to 2. The low-gain neuron is the monotonic twin at half its height. Every
+quantity is computed exactly on a grid by `multigeom.lowdim`, without a diffusion model or a dataset.
+
+| Notebook | What it does | Needs | Time |
+|---|---|---|---|
+| `f1_what_one_response_tells_you` | Build the response distribution of the bell-shaped neuron from repeats and the posterior of the stimulus given one response, with `response_density` and `posterior`. | the package, CPU | about 2 s |
+| `f2_entropy_and_mutual_information` | Entropy of the prior and of a posterior with `entropy`, the bits removed by one response, and the mutual information of the three neurons with `mutual_information`. | the package, CPU | about 1 s |
+| `f3_fisher_information` | How well two nearby stimuli can be told apart, the Fisher information J(x) with `compute_fisher`, the score, the Cramér-Rao bound checked by simulation, and J of eight neurons. | the package, CPU | about 1 s |
+| `f4_from_fisher_to_geometry` | The Fisher distance between stimuli with `cumulative_distance` and `distance`, the 2 x 2 Fisher matrix of two neurons with `fisher_from_jacobian`, and three neurons whose Fisher distances do not order them by their mutual information. | the package, CPU | about 1 s |
+| `f5_noise_as_a_ruler` | Blur a stimulus drawn from two narrow bumps by adding Gaussian noise of variance t (the blur level), compute the best guess of the stimulus from its blurred version, and split the information that survives the blur over blur levels, in closed form. | the package, CPU | about 2 s |
+| `f6_which_stimuli_carry_the_information` | The Fisher information of the code seen through blur with `blurred_code`, the local information i(x) (the mutual information split over stimuli) with `compute_g`, and a test of locality against `specific_surprise` and `stimulus_specific_information`. | the package, CPU | about 9 s |
+| `f7_multiscale_fisher_information` | The multi-scale Fisher information G(x), the Fisher information of the blurred code integrated over blur levels, of the three neurons with `compute_g`, the contribution of each blur level, and G distances next to Fisher distances. | the package, CPU | about 6 s |
+| `f8_geometry_gives_back_the_information` | Check that half the prior average of the trace of G is the mutual information, on the three neurons, on Gaussian stimuli with a linear code with `gaussian_g` and `gaussian_information`, and on samples with `nearest_neighbour_information`. | the package, CPU | about 12 s |
 
 **Getting started** (the basic blocks of the package):
 
@@ -30,12 +49,15 @@ large and unreadable in diffs, do not clutter the package history.
 | `5_local_metric_field` | Local metric field around a reference image (Fig. 5). | TinyImageNet, checkpoints, GPU | about 25 min |
 | `6_bures_wasserstein` | Bures-Wasserstein distance between geometries (Fig. 6). | the outputs of notebook 4 | minutes, CPU |
 
-Start with notebook 0. Notebooks 1 and 2 need only TinyImageNet. Notebooks 3 to 6 reproduce the paper's analyses and need the
-trained checkpoints and TinyImageNet below (the notebooks download them).
+If the posterior, the mutual information and the Fisher information are new to you, start with notebook f1 and go on in
+order to f8. To work with images, start with notebook 0. Notebooks 1 and 2 need only TinyImageNet. Notebooks 3 to 6
+reproduce the paper's analyses and need the trained checkpoints and TinyImageNet, which the notebooks download (see
+[Data and checkpoints](#data-and-checkpoints-notebooks-1-to-6)).
 
 ## Installation
 
-Python 3.11. A GPU is recommended (notebooks 1 and 2 also run on a CPU, more slowly); notebooks 0 and 6 do not need one. Run these commands from the root of this repository.
+Python 3.11. The Foundations notebooks and notebooks 0 and 6 run on a CPU. A GPU is recommended for notebooks 1 to 5
+(notebooks 1 and 2 also run on a CPU, more slowly). Run these commands from the root of this repository.
 
 1. **Create the environment** with conda. `environment.yml` pins PyTorch 2.7 for CUDA 12.8; edit the `--extra-index-url`
    and the torch lines for another CUDA version.
@@ -61,6 +83,11 @@ Python 3.11. A GPU is recommended (notebooks 1 and 2 also run on a CPU, more slo
    pip install -e "../multigeom[all]"
    ```
 
+   The Foundations notebooks need a `multigeom` version that contains `multigeom.lowdim`. It is on the `develop` branch
+   of the package and enters PyPI with the release after 0.1.0.dev4. Until then, install it from a clone as shown, after
+   `git -C ../multigeom checkout develop`, or with
+   `pip install "multigeom @ git+https://github.com/multigeom/multigeom.git@develop"`.
+
 3. **Create the Jupyter kernel** and open the notebooks with it.
 
    ```bash
@@ -79,7 +106,7 @@ are read from this folder whatever the notebook's own location.
 
 ## Data and checkpoints (notebooks 1 to 6)
 
-Notebook 0 needs neither. Notebooks 1 to 5 need TinyImageNet, and notebooks 3 to 5 the
+Notebook 0 and the Foundations notebooks need neither. Notebooks 1 to 5 need TinyImageNet, and notebooks 3 to 5 the
 trained checkpoints. The notebooks download both:
 
 - `data/`: TinyImageNet, with `multigeom.datasets.download_tinyimagenet()`.
