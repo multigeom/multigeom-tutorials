@@ -1,4 +1,7 @@
 """
+Check that notebook 4 still reproduces how well the leading eigenvectors of different
+encoders and areas align (paper Fig. 4D-E).
+
 Integration test: do we reproduce the plot of notebooks/4_subspace_alignment.ipynb
 (paper Fig. 4D-E, subspace alignment of the top-k eigenvectors of G(x) and J(x) across
 encoders and areas)?
@@ -25,6 +28,7 @@ computation of the eigenvectors (the G(x) estimation) is covered by the Fig. 3 /
 
 from __future__ import annotations
 
+import pytest
 import json
 import sys
 from pathlib import Path
@@ -42,6 +46,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from nb_helpers import BAD_PIXEL_FRACTION, MEAN_ABS_TOL, image_difference  # noqa: E402
 from figures.alignment import plot_alignment  # noqa: E402
 
+# the notebooks these tests cover (orders the tables of tests/README.md)
+pytestmark = pytest.mark.notebook(4)
+
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "fig4_de"
 METRICS = FIXTURES / "cross_encoder_metrics.json"
 INFO = FIXTURES / "fixture_info.json"
@@ -55,6 +62,11 @@ def render(metrics, path: Path) -> None:
 
 
 def test_fixture_has_the_four_comparisons_of_both_metrics():
+    """
+    Verify that the stored alignment metrics of Fig. 4D-E (notebook 4) have the four
+    comparisons of the figure, for the multiscale Fisher information G(x) and the
+    Fisher information of the responses J(x).
+    """
     named = json.loads(METRICS.read_text())["named"]
     for metric in ("G", "J"):
         for key in (
@@ -67,6 +79,9 @@ def test_fixture_has_the_four_comparisons_of_both_metrics():
 
 
 def test_alignment_is_between_zero_and_one():
+    """
+    Verify that every stored alignment curve has 50 values, all between 0 and 1.
+    """
     pairs = json.loads(METRICS.read_text())["pairs"]
     assert pairs
     for v in pairs.values():
@@ -75,6 +90,9 @@ def test_alignment_is_between_zero_and_one():
 
 
 def test_notebook_plot_reproduces_reference(tmp_path):
+    """
+    Verify that the plot of notebook 4 draws Fig. 4D-E like the reference picture.
+    """
     render(METRICS, tmp_path / "plot.png")
     mean_abs, bad = image_difference(
         mpimg.imread(tmp_path / "plot.png"), mpimg.imread(REFERENCE_PNG)
@@ -88,8 +106,12 @@ def test_notebook_plot_reproduces_reference(tmp_path):
 
 def test_plot_comparison_detects_changes(tmp_path):
     """
-    Guards against a vacuous comparison: changing the curves of one comparison must fail
-    it.
+    Verify that, with the mean alignment curve of one comparison (Inception
+    V1 against V4, the multiscale Fisher information G(x)) set to 0.9 for every number
+    of eigenvectors k, Fig. 4D-E differs from the reference picture beyond the
+    tolerance of `test_notebook_plot_reproduces_reference` (mean |difference| ≥ 0.001,
+    or ≥ 0.2% of the pixels off by more than 0.1), so that that test cannot pass by
+    accident.
     """
     metrics = json.loads(METRICS.read_text())
     pair = metrics["named"]["cross_area_inception__G"]
@@ -109,6 +131,10 @@ def info():
 
 
 def test_fixture_info_lists_how_the_fixture_was_made():
+    """
+    Verify that `fixture_info.json` records the estimator settings, the images and the
+    diffusion checkpoint of each configuration.
+    """
     i = info()
     assert {
         "configs",
@@ -131,6 +157,10 @@ def test_fixture_info_lists_how_the_fixture_was_made():
 
 
 def test_fixture_info_agrees_with_the_stored_metrics():
+    """
+    Verify that the configurations, images and number of eigenvectors in
+    `fixture_info.json` are those of the stored metrics.
+    """
     i, m = info(), json.loads(METRICS.read_text())
     images = {tuple(k.split("/")): set(v["images"]) for k, v in i["per_config"].items()}
     assert {tuple(c) for c in i["configs"]} == set(images)
@@ -149,8 +179,11 @@ def test_fixture_info_agrees_with_the_stored_metrics():
 
 def test_fixture_parameters_match_the_current_settings_of_the_repository():
     """
-    If the estimator config or the plot defaults change, the fixture no longer describes
-    this code.
+    Verify that the fixture was made with the current estimator config and plot
+    defaults, so it still describes this code.
+
+    If the estimator config or the plot defaults change, the fixture no longer
+    describes this code.
     """
     import inspect
 

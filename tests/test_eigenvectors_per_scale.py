@@ -1,4 +1,7 @@
 """
+Check that notebook 7 still computes and plots the leading eigenvectors of the
+multiscale Fisher information G(x) at a single noise level, M_t(x), for the frog.
+
 Integration tests of notebooks/7_eigenvectors_of_G_per_scale.ipynb: the leading
 eigenvectors of M_t(x), the integrand of G(x), at each noise level, for the frog and the
 inception models of V1 and V4.
@@ -56,6 +59,9 @@ from nb_helpers import (  # noqa: E402
     run_notebook7_frog,
 )
 
+# the notebooks these tests cover (orders the tables of tests/README.md)
+pytestmark = pytest.mark.notebook(7)
+
 N_LEVELS, N_EIGVECS, P = 24, 4, 64 * 64
 
 # The leading eigenvector is compared at the coarse noise levels only, where it is
@@ -73,6 +79,11 @@ def plot_difference(examples: dict, results: dict, tmp_path: Path) -> tuple:
 
 
 def test_fixture_is_wellformed():
+    """
+    Verify that the stored data of notebook 7 (the frog) has 24 increasing noise
+    levels and, for V1 and V4, 4 positive decreasing eigenvalues and unit-norm
+    eigenvectors at each level.
+    """
     examples, results = per_scale_inputs()
 
     # the frog, 64 x 64
@@ -94,6 +105,10 @@ def test_fixture_is_wellformed():
 
 
 def test_notebook_plot_reproduces_reference(tmp_path):
+    """
+    Verify that the plot cell of notebook 7 draws the figure of the frog like the
+    reference picture, and saves it.
+    """
     examples, results = per_scale_inputs()
     mean_abs, bad = plot_difference(examples, results, tmp_path)
     assert mean_abs < MEAN_ABS_TOL and bad < BAD_PIXEL_FRACTION, (
@@ -107,7 +122,14 @@ def test_notebook_plot_reproduces_reference(tmp_path):
 
 
 def test_plot_comparison_detects_changes(tmp_path):
-    """Guards against a vacuous comparison: changing the eigenvectors must fail it."""
+    """
+    Verify that, with the four leading eigenvectors of V1's multiscale Fisher
+    information at a single noise level, M_t(x), drawn in reverse order (the 4th in
+    place of the 1st) at every noise level, the figure of the frog differs from the
+    reference picture beyond the tolerance of
+    `test_notebook_plot_reproduces_reference` (mean |difference| ≥ 0.001, or ≥ 0.2% of
+    the pixels off by more than 0.1), so that that test cannot pass by accident.
+    """
     examples, results = per_scale_inputs()
 
     # reverse the order of the eigenvectors of V1 at every level
@@ -120,9 +142,14 @@ def test_plot_comparison_detects_changes(tmp_path):
 @pytest.mark.slow
 def test_recompute_matches_fixture():
     """
-    Compare what the notebook computes for the frog with the stored data. M_t(x) is a
-    seeded Monte-Carlo estimate: identical on the device the fixture was made on, close
-    on another; only the leading eigenvector at coarse noise levels is stable enough to
+    Verify that notebook 7 recomputed from the checkpoints gives the stored noise
+    levels, and at the coarse levels (log noise variance τ ≥ 3) the stored leading
+    eigenvector (absolute cosine |cos| > 0.9) and leading eigenvalue (within 30%).
+
+    Compare what the notebook computes for the frog with the stored data. The
+    multiscale Fisher information at a single noise level, M_t(x), is a seeded
+    Monte-Carlo estimate: identical on the device the fixture was made on, close on
+    another; only the leading eigenvector at coarse noise levels is stable enough to
     compare across devices, and the leading eigenvalue to within 30%.
     """
     if not have_inputs([FROG_IMAGE]):

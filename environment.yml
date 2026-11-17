@@ -28,6 +28,7 @@ dependencies:
     - ipykernel                      # the jupyter kernel
     - ipywidgets                     # notebook progress bars (tqdm)
     - pytest                         # tests of the notebooks
+    - pre-commit                     # checks run on every commit (.pre-commit-config.yaml)
     - pip
     - pip:
         - --extra-index-url https://download.pytorch.org/whl/cu128

@@ -1,4 +1,8 @@
 """
+Check that notebook 3 still reproduces the leading eigenvectors of the multiscale Fisher
+information G(x) and of the Fisher information of the responses J(x) for the Inception
+encoder (paper Fig. 3D-F).
+
 Integration tests, inception encoder: do we reproduce the notebook's Fig. 3D-F
 (notebooks/3_leading_eigenvectors_of_G.ipynb, section 6: the frog image with the V1/V4
 receptive fields, and the leading eigenvectors of G(x) and J(x) for V1 and V4)?
@@ -46,10 +50,19 @@ from nb_helpers import (  # noqa: E402
 
 from nb_fixtures import notebook_run  # noqa: E402,F401  (pytest fixture)
 
+# the notebooks these tests cover (orders the tables of tests/README.md)
+pytestmark = pytest.mark.notebook(3)
+
 ENCODER = "inception"
 
 
 def test_fixture_is_wellformed():
+    """
+    Verify that the stored data of Fig. 3D-F (notebook 3) is complete: receptive-field
+    parameters of the V1 and V4 readouts, the frog, and unit-norm eigenvectors of the
+    multiscale Fisher information G(x) and the Fisher information of the responses
+    J(x).
+    """
     ckpts, records = fixture_inputs()
     for area in AREAS:
         assert ckpts[(ENCODER, area)]["model_state_dict"]["readout.mu"].shape[1] == 2
@@ -61,6 +74,10 @@ def test_fixture_is_wellformed():
 
 
 def test_notebook_plot_reproduces_reference(tmp_path):
+    """
+    Verify that the plot cell of notebook 3 draws Fig. 3D-F like the reference
+    picture.
+    """
     ckpts, records = fixture_inputs()
     mean_abs, bad = plot_difference("fig3", ckpts, records, tmp_path)
     assert mean_abs < MEAN_ABS_TOL and bad < BAD_PIXEL_FRACTION, (
@@ -71,7 +88,14 @@ def test_notebook_plot_reproduces_reference(tmp_path):
 
 
 def test_plot_comparison_detects_changes(tmp_path):
-    """Guards against a vacuous comparison: changing the eigenvectors must fail it."""
+    """
+    Verify that, with the four stored leading eigenvectors of the multiscale
+    Fisher information G(x) and the Fisher information of the responses J(x) of V1
+    drawn in reverse order (the 4th in place of the 1st), Fig. 3D-F differs from the
+    reference picture beyond the tolerance of
+    `test_notebook_plot_reproduces_reference` (mean |difference| ≥ 0.001, or ≥ 0.2% of
+    the pixels off by more than 0.1), so that that test cannot pass by accident.
+    """
     ckpts, records = fixture_inputs()
     rec = records[(ENCODER, "V1")]
     rec["G_eigenvectors"] = rec["G_eigenvectors"].flip(
@@ -85,11 +109,16 @@ def test_plot_comparison_detects_changes(tmp_path):
 @pytest.mark.slow
 def test_recompute_matches_fixture(notebook_run):
     """
+    Verify that notebook 3 recomputed from the checkpoints gives the stored
+    eigenvectors: the leading 4 of the Fisher information of the responses J(x) with
+    absolute cosine |cos| > 0.99, the leading one of the multiscale Fisher information
+    G(x) with |cos| > 0.9 (G(x) is a Monte-Carlo estimate).
+
     Compare what the notebook computes from the checkpoints with the stored data. J(x)
     is deterministic, so it must agree (up to the sign of each eigenvector, and small
     numerical differences between devices). G(x) is a seeded Monte-Carlo estimate:
-    identical on the device the fixture was made on, close on another; only its leading
-    eigenvector is stable enough to compare across devices.
+    identical on the device the fixture was made on, close on another; only its
+    leading eigenvector is stable enough to compare across devices.
     """
     import torch
 

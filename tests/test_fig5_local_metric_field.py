@@ -1,4 +1,7 @@
 """
+Check that the stored local metric field of notebook 5 is valid and that its plot still
+reproduces paper Fig. 5.
+
 Integration test: do we reproduce the plot of notebooks/5_local_metric_field.ipynb
 (paper Fig. 5, the local metric field projected onto the leading eigenvectors of G(x))?
 
@@ -55,6 +58,9 @@ from nb_helpers import (
 from multigeom.pipeline import metric_field_job as lmf  # noqa: E402
 from figures.fig5 import make_figure  # noqa: E402
 
+# the notebooks these tests cover (orders the tables of tests/README.md)
+pytestmark = pytest.mark.notebook(5)
+
 FIXTURES = FIG5_FIXTURES
 NPZ = FIXTURES / "metric_field.npz"
 INFO = FIXTURES / "fixture_info.json"
@@ -75,6 +81,10 @@ def info() -> dict:
 
 
 def test_fixture_matrices_are_valid_metrics():
+    """
+    Verify that the stored 2 x 2 metrics of Fig. 5 (notebook 5) are symmetric and
+    positive semi-definite, on the grid −2 to 2 around a 64 x 64 image.
+    """
     data = np.load(NPZ)
     n = len(data["grid_coefficients"])
     for key in data.files:
@@ -92,6 +102,10 @@ def test_fixture_matrices_are_valid_metrics():
 
 
 def test_fixture_info_lists_how_the_fixture_was_made():
+    """
+    Verify that `fixture_info.json` records the settings of each part (samples, grid
+    size, step rule) and the diffusion checkpoints.
+    """
     i = info()
     assert {
         "job",
@@ -125,6 +139,10 @@ def test_fixture_info_lists_how_the_fixture_was_made():
 
 
 def test_fixture_info_agrees_with_the_stored_matrices():
+    """
+    Verify that the grid size, metrics and areas in `fixture_info.json` are those of
+    the stored matrices.
+    """
     i, data = info(), np.load(NPZ)
     job = i["job"]
     assert len(data["grid_coefficients"]) == job["grid_size"]
@@ -140,6 +158,9 @@ def test_fixture_info_agrees_with_the_stored_matrices():
 
 def test_fixture_parameters_match_the_current_settings_of_the_repository():
     """
+    Verify that the fixture was made with the current estimator config, job defaults
+    (image, steps) and plot defaults.
+
     If the estimator config, the job defaults or the plot defaults change, the fixture
     no longer describes this code.
     """
@@ -169,6 +190,9 @@ def test_fixture_parameters_match_the_current_settings_of_the_repository():
 
 
 def test_notebook_plot_reproduces_reference(tmp_path):
+    """
+    Verify that the plot of notebook 5 draws Fig. 5 like the reference picture.
+    """
     render(fig5_records(), tmp_path / "plot.png")
     mean_abs, bad = image_difference(
         mpimg.imread(tmp_path / "plot.png"), mpimg.imread(REFERENCE_PNG)
@@ -182,8 +206,11 @@ def test_notebook_plot_reproduces_reference(tmp_path):
 
 def test_plot_comparison_detects_changes(tmp_path):
     """
-    Guards against a vacuous comparison: a different ResNet-50 metric field must fail
-    it.
+    Verify that, with the ResNet-50 metrics of the multiscale Fisher
+    information G(x) for V1 multiplied by 4 and given an off-diagonal term of 0.5,
+    Fig. 5 differs from the reference picture beyond the tolerance of
+    `test_notebook_plot_reproduces_reference` (mean |difference| ≥ 0.001, or ≥ 0.2% of
+    the pixels off by more than 0.1), so that that test cannot pass by accident.
     """
     records = fig5_records()
     rec = records[("G", "V1")]

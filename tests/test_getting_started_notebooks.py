@@ -1,4 +1,6 @@
 """
+Check that the getting-started notebooks 1 and 2 run end to end on a small fake dataset.
+
 Integration tests of the getting-started notebooks 1 and 2 (build your own encoder on
 synthetic neural data; train the diffusion model and compute G(x)): their cells run end
 to end, on CPU, on a tiny fake TinyImageNet and with small sizes. No dataset, checkpoint
@@ -20,6 +22,9 @@ from PIL import Image  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from nb_helpers import REPO, run_all_code_cells  # noqa: E402
+
+# the notebooks these tests cover (orders the tables of tests/README.md)
+pytestmark = pytest.mark.notebook(1, 2)
 
 NB1 = REPO / "notebooks" / "1_create_your_encoder.ipynb"
 NB2 = REPO / "notebooks" / "2_compute_g.ipynb"
@@ -121,6 +126,11 @@ def notebook1(tiny_data, tmp_path_factory):
 
 
 def test_notebook_1_builds_fits_saves_and_reloads_an_encoder(notebook1):
+    """
+    Verify that notebook 1 runs on a tiny fake TinyImageNet: it builds and fits an
+    encoder of 50 neurons, saves it, and the reloaded encoder predicts the same
+    responses.
+    """
     ns, out = notebook1
     assert (out / "encoder.pt").exists() and (out / "teacher.pt").exists()
     assert ns["same"] is True  # the reloaded encoder predicts the same
@@ -135,6 +145,11 @@ def test_notebook_1_builds_fits_saves_and_reloads_an_encoder(notebook1):
 
 
 def test_notebook_1_checks_the_contract_and_compares_fisher_with_the_teacher(notebook1):
+    """
+    Verify that notebook 1 checks the encoder against the contract, and compares the
+    leading eigenvectors of its Fisher information with those of the teacher
+    (alignment of the leading k eigenvectors at k = 1, 5 and 10, between 0 and 1).
+    """
     ns, _ = notebook1
     # a barely trained encoder may get the R9 scale warning: only the contract matters
     assert ns["report"].n_neurons == 50
@@ -147,6 +162,11 @@ def test_notebook_1_checks_the_contract_and_compares_fisher_with_the_teacher(not
 
 
 def test_notebook_2_trains_a_diffusion_model_and_computes_g(notebook1, tiny_data):
+    """
+    Verify that notebook 2 trains a small diffusion model and computes finite values
+    of the multiscale Fisher information G(x) and the Fisher information of the
+    responses J(x) of the expected shapes.
+    """
     pytest.importorskip("diffusers")
     _, out = notebook1
     ns = _run(

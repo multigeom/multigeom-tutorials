@@ -1,4 +1,7 @@
 """
+Check the summary and integration helpers shared by notebooks 7 to 10 on inputs whose
+answer is known.
+
 Unit tests of the helpers of notebooks 7 to 10 (figures/per_scale.py) on inputs whose
 answer is known: no data, checkpoints or GPU, and no multigeom newer than the released
 one.
@@ -6,14 +9,23 @@ one.
 
 from __future__ import annotations
 
+import pytest
 from types import SimpleNamespace
 
 import torch
 
 from figures.per_scale import align_signs, compute_summary
 
+# the notebooks these tests cover (orders the tables of tests/README.md)
+pytestmark = pytest.mark.notebook(7, 8, 9, 10)
+
 
 def test_align_signs_flips_only_signs_to_agree_with_coarser_levels():
+    """
+    Verify that `align_signs` (`figures/per_scale.py`, notebooks 7 and 8) only flips
+    signs, makes each eigenvector agree with the same one at the next coarser level,
+    and gives the coarsest a positive sum.
+    """
     # random eigenvectors of 6 levels, with random signs
     generator = torch.Generator().manual_seed(0)
     eigvecs = torch.randn(6, 3, 50, generator=generator)
@@ -29,6 +41,11 @@ def test_align_signs_flips_only_signs_to_agree_with_coarser_levels():
 
 
 def test_compute_summary_on_known_records():
+    """
+    Verify that `compute_summary` (`figures/per_scale.py`, notebook 7) gives an
+    absolute cosine |cos| of 0 between images with orthogonal eigenvectors and 1 with
+    the same one, and the fraction of images where V4's leading eigenvalue is larger.
+    """
     # three images and two noise levels: orthogonal leading eigenvectors at the first
     # level, the same one at the second; V4's leading eigenvalue larger at the first
     basis = torch.eye(4)
@@ -53,6 +70,13 @@ def test_compute_summary_on_known_records():
 
 
 def test_compute_gaussian_env_on_known_variances():
+    """
+    Verify that `compute_gaussian_env` (`figures/per_scale.py`, notebook 9), the
+    envelope spectrum of a Gaussian prior, gives the sum over the directions of their
+    variance c_i over c_i plus the noise variance t, Σ_i c_i / (c_i + t), on known
+    variances: the number of directions that vary at tiny noise, ½ per unit-variance
+    direction at t = 1, and the total variance over t, tr C / t, at huge noise.
+    """
     from figures.per_scale import compute_gaussian_env
 
     # two directions of variance 1 and one of variance 0
@@ -67,6 +91,11 @@ def test_compute_gaussian_env_on_known_variances():
 
 
 def test_compute_information_on_known_curves():
+    """
+    Verify that `compute_information` (`figures/per_scale.py`, notebook 10) gives half
+    the area under the curve of each image (trapezoids over log t), the mean over the
+    images and its standard error, on two piecewise-linear curves of known area.
+    """
     from figures.per_scale import compute_information
 
     # two images whose curves are 1 and 3 between log t = 0 and 2, then fall linearly
@@ -82,6 +111,10 @@ def test_compute_information_on_known_curves():
 
 
 def test_compute_centre_on_known_curves():
+    """
+    Verify that `compute_centre` (`figures/per_scale.py`, notebook 10) puts a
+    symmetric bump at its centre, and is not moved by a negative value of the curve.
+    """
     from figures.per_scale import compute_centre
 
     # a bump symmetric about log t = 3, and the same bump with a negative value at

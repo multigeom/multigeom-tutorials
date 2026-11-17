@@ -1,0 +1,22 @@
+# Checks run on every commit, once installed: pip install pre-commit, then pre-commit
+# install (at the repository root). Run them all by hand: pre-commit run --all-files.
+# GitHub Actions runs the same ones (.github/workflows/tests.yml).
+repos:
+  # lines of at most 88 characters, formatted with ruff (notebooks included)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.1
+    hooks:
+      - id: ruff-format
+      - id: ruff-check
+
+  # the tables of tests/README.md, written from the docstrings of the tests (needs the
+  # Python environment of the notebooks, with multigeom: it collects the tests; see
+  # scripts/tests_readme_hook.sh for how that Python is found)
+  - repo: local
+    hooks:
+      - id: tests-readme
+        name: tests/README.md tables up to date
+        entry: scripts/tests_readme_hook.sh
+        language: system
+        files: ^(tests/.*\.py|tests/README\.md|scripts/(make_tests_readme\.py|tests_readme_hook\.sh))$
+        pass_filenames: false

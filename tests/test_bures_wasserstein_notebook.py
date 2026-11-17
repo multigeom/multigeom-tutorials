@@ -1,4 +1,7 @@
 """
+Check that notebook 6 still computes and plots the Bures-Wasserstein distances between
+the geometries of encoders and areas (paper Fig. 6).
+
 Integration tests of notebooks/6_bures_wasserstein.ipynb (paper Fig. 6, the
 Bures-Wasserstein distance between geometries): they run the notebook's own cells.
 
@@ -44,6 +47,9 @@ from nb_helpers import (  # noqa: E402
     run_cells,
 )
 
+# the notebooks these tests cover (orders the tables of tests/README.md)
+pytestmark = pytest.mark.notebook(6)
+
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SOURCE = FIXTURES / "fig4_de" / "cross_encoder_metrics.json"
 INFO = FIXTURES / "fig6" / "fixture_info.json"
@@ -60,6 +66,9 @@ def info() -> dict:
 
 
 def test_the_notebook_has_the_cells_the_tests_use():
+    """
+    Verify that notebook 6 has the code cells that the other tests run.
+    """
     nb = json.loads(NOTEBOOK4.read_text())
     code = ["".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code"]
     for marker in (SETUP4, COMPUTE4, ORDER4, PLOT4):
@@ -67,6 +76,11 @@ def test_the_notebook_has_the_cells_the_tests_use():
 
 
 def test_fixture_info_agrees_with_its_source_and_the_repository():
+    """
+    Verify that the stored metrics of Fig. 6 come from the recorded source file (MD5),
+    give the paper's ordering of the comparisons, and match the current estimator
+    config and plot function.
+    """
     i = info()
     assert hashlib.md5(SOURCE.read_bytes()).hexdigest() == i["source"]["md5"], (
         "the Stage-5 file of the Fig. 4D-E fixture changed: regenerate the Fig. 6 "
@@ -95,6 +109,11 @@ def test_fixture_info_agrees_with_its_source_and_the_repository():
 
 
 def test_ordering_cell_reports_the_papers_order(at_repo_root, capsys):
+    """
+    Verify that the ordering cell of notebook 6 finds the paper's ordering of the
+    comparisons, for the multiscale Fisher information G(x) and the Fisher information
+    of the responses J(x).
+    """
     from multigeom.pipeline import alignment as bw
 
     ns = run_cells({}, SETUP4, notebook=NOTEBOOK4)
@@ -110,6 +129,9 @@ def test_ordering_cell_reports_the_papers_order(at_repo_root, capsys):
 
 
 def test_plot_cell_draws_the_reference_figure(at_repo_root, tmp_path, monkeypatch):
+    """
+    Verify that the plot cell of notebook 6 draws Fig. 6 like the reference picture.
+    """
     from multigeom.pipeline import alignment as bw
 
     ns = run_cells({}, SETUP4, notebook=NOTEBOOK4)
@@ -133,6 +155,10 @@ def test_plot_cell_draws_the_reference_figure(at_repo_root, tmp_path, monkeypatc
 
 
 def test_plot_and_ordering_cells_say_so_without_results(at_repo_root, capsys):
+    """
+    Verify that, without results, the cells say "Nothing to check yet" and "Nothing to
+    plot yet" instead of failing.
+    """
     ns = run_cells({}, SETUP4, notebook=NOTEBOOK4)
     ns["metrics_path"] = None
     capsys.readouterr()
@@ -159,6 +185,10 @@ def _have_per_image() -> bool:
 def test_notebook_runs_stage5_and_plots_in_a_scratch_copy(
     at_repo_root, tmp_path, monkeypatch
 ):
+    """
+    Verify that notebook 6 computes the metrics from the per-image results of notebook
+    4 and plots them, in a scratch copy, without touching the real results.
+    """
     scratch = tmp_path / "repo"
     (scratch / "runs").mkdir(parents=True)
     (scratch / "runs" / "per_image").symlink_to(

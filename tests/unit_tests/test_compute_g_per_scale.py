@@ -1,4 +1,7 @@
 """
+Check that the estimator of the multiscale Fisher information G(x) at a single noise
+level, M_t(x), gives the known answer on mock models.
+
 Unit tests of `multigeom.compute_g_per_scale` (notebook 7) and of the differences of
 noise predictions it is built from, with mock models:
 
@@ -36,6 +39,21 @@ import torch.nn as nn
 import multigeom
 from multigeom.config import load_config
 from multigeom.geometry.methods import ConditionalPair
+from estimator_mocks import (
+    PARAMS,
+    MockEncoder,
+    RecordingDenoiser,
+    ResponseBlindDenoiser,
+    compute_deltas,
+    get_alphas_cumprod,
+    get_cfg,
+    get_levels,
+    get_noise_variance,
+    run_estimator,
+)
+
+# the notebooks these tests cover (orders the tables of tests/README.md)
+pytestmark = pytest.mark.notebook(7)
 
 # compute_g_per_scale is newer than the multigeom on PyPI: its tests are skipped until
 # the installed one has it
@@ -43,39 +61,6 @@ compute_g_per_scale = getattr(multigeom, "compute_g_per_scale", None)
 needs_per_scale = pytest.mark.skipif(
     compute_g_per_scale is None, reason="needs a multigeom with compute_g_per_scale"
 )
-
-# the settings of the tests: a small image, a few neurons, five noise levels (DDPM steps
-# 100 to 900, every 200) with 20 samples each, and three eigenpairs per level
-PARAMS = {
-    "image_size": 8,
-    "n_neurons": 3,
-    "n_samples": 20,
-    "batch_size": 10,
-    "grid": (100, 900, 200),
-    "top_k": 3,
-    # the DDPM steps of the check against the Fisher information, from fine to coarse
-    "fisher_levels": (10, 100, 300, 600, 900),
-}
-
-
-class ResponseBlindDenoiser(nn.Module):
-    """
-    A mock diffusion model whose noise prediction depends on the noisy image and the
-    noise level, but never on the response (the null token included).
-    """
-
-    def __init__(self, alphas_cumprod: torch.Tensor):
-        super().__init__()
-
-        # ᾱ of each DDPM step, to make the prediction depend on the noise level
-        self.register_buffer("alphas_cumprod", alphas_cumprod)
-
-    def forward(
-        self, x_t: torch.Tensor, timestep: torch.Tensor, response: torch.Tensor
-    ) -> torch.Tensor:
-        # a function of the noisy image and the noise level only: `response` is not read
-        scale = self.alphas_cumprod[timestep].sqrt().view(-1, 1, 1, 1)
-        return torch.tanh(x_t) * scale
 
 
 class ResponseReadingDenoiser(ResponseBlindDenoiser):
@@ -87,56 +72,6 @@ class ResponseReadingDenoiser(ResponseBlindDenoiser):
         # the sum of the responses, added to every pixel
         readout = response.sum(dim=1).view(-1, 1, 1, 1) * torch.ones_like(x_t)
         return super().forward(x_t, timestep, response) + readout
-
-
-class RecordingDenoiser(ResponseBlindDenoiser):
-    """
-    A mock that reads the response through a fixed random map to the pixels, modulated
-    by the noisy image (so that the difference of the two predictions changes from
-    sample to sample and M_t has many non-zero eigenvalues), and records every call:
-    the noisy images, the DDPM step, the responses and the noise prediction.
-    """
-
-    def __init__(self, alphas_cumprod: torch.Tensor):
-        super().__init__(alphas_cumprod)
-
-        # the fixed map from the responses to the pixels [P, n_neurons]
-        n_pixels = PARAMS["image_size"] ** 2
-        generator = torch.Generator().manual_seed(1)
-        readout = torch.randn(n_pixels, PARAMS["n_neurons"], generator=generator)
-        self.register_buffer("readout", readout)
-
-        # the calls, in order
-        self.calls = []
-
-    def forward(
-        self, x_t: torch.Tensor, timestep: torch.Tensor, response: torch.Tensor
-    ) -> torch.Tensor:
-        # the responses mapped to the pixels, modulated by the noisy images
-        mapped = (response @ self.readout.T).view_as(x_t) * (1 + 0.5 * torch.tanh(x_t))
-        prediction = super().forward(x_t, timestep, response) + mapped
-
-        # a copy of the inputs and of the output of this call
-        self.calls.append(
-            {
-                "x_t": x_t.clone(),
-                "timestep": timestep.clone(),
-                "response": response.clone(),
-                "prediction": prediction.clone(),
-            }
-        )
-        return prediction
-
-
-class MockEncoder(nn.Module):
-    """A mock encoder: responses [B, n_neurons] that depend on the image."""
-
-    n_neurons = PARAMS["n_neurons"]
-
-    def forward(self, images: torch.Tensor) -> torch.Tensor:
-        # the mean of each image, with a different gain for each neuron
-        gains = torch.arange(1.0, self.n_neurons + 1)
-        return images.flatten(1).mean(dim=1, keepdim=True) * gains
 
 
 class GaussianDenoiser(nn.Module):
@@ -248,34 +183,6 @@ def get_fisher_curve(model: dict, noise_variance: float) -> tuple[float, float]:
     return t * float(torch.trace(fisher)), float(spread[0, 0])
 
 
-def get_alphas_cumprod() -> torch.Tensor:
-    """ᾱ_t of the paper's linear β schedule (1000 DDPM steps, β from 1e-4 to 0.02)."""
-    # β_t, then ᾱ_t = Π_{s≤t} (1 − β_s)
-    betas = torch.linspace(1e-4, 0.02, 1000)
-    return torch.cumprod(1.0 - betas, dim=0)
-
-
-def get_cfg() -> SimpleNamespace:
-    """The packaged estimator settings, with the small sizes of PARAMS."""
-    # a copy of the packaged settings (σ of the responses, seed, ...)
-    cfg = copy.deepcopy(load_config("estimator"))
-
-    # fewer samples, a coarser grid of noise levels, fewer eigenpairs
-    cfg.monte_carlo.n_samples = PARAMS["n_samples"]
-    cfg.monte_carlo.batch_size = PARAMS["batch_size"]
-    grid = cfg.monte_carlo.timestep_grid
-    grid.start, grid.stop, grid.step = PARAMS["grid"]
-    cfg.top_k = PARAMS["top_k"]
-    return cfg
-
-
-def get_levels() -> list[int]:
-    """The DDPM steps of the noise levels of PARAMS, stop included."""
-    # start, stop and step of the grid
-    start, stop, step = PARAMS["grid"]
-    return list(range(start, stop + 1, step))
-
-
 def compute_differences(sigma: float) -> list[torch.Tensor]:
     """
     The rows of D, ε(x_t, t, r) − ε(x_t, t, r'), that the conditional-pair method draws
@@ -317,65 +224,7 @@ def compute_m_t(denoiser: nn.Module, top_k: int = PARAMS["top_k"]) -> SimpleName
     The top `top_k` eigenpairs of M_t(x) at each noise level, for a random image, the
     mock encoder and the mock `denoiser` (with its noise schedule).
     """
-    # the noise schedule of the denoiser, and a random image in [-1, 1]
-    alphas_cumprod = denoiser.alphas_cumprod
-    size = PARAMS["image_size"]
-    generator = torch.Generator().manual_seed(0)
-    image = torch.rand(1, 1, size, size, generator=generator) * 2 - 1
-
-    # the settings, with top_k eigenpairs kept at each noise level
-    cfg = get_cfg()
-    cfg.top_k = top_k
-
-    # M_t(x) at each noise level, on the CPU
-    return compute_g_per_scale(
-        image=image,
-        encoder=MockEncoder(),
-        unet=denoiser,
-        alphas_cumprod=alphas_cumprod,
-        cfg=cfg,
-        device=torch.device("cpu"),
-        generator=generator,
-    )
-
-
-def compute_deltas(calls: list[dict], alphas_cumprod: torch.Tensor) -> dict:
-    """
-    The differences δ_s = x̂(x_t, r) − x̂(x_t, r') of the two denoised images of each
-    sample s (Tweedie's formula, in image units, float64) at each noise level, from the
-    calls that the estimator made to a RecordingDenoiser: {DDPM step: [N, P]}.
-    """
-    # the calls with a response (the null token is all zeros): the two of each sample,
-    # r then r', follow each other
-    conditional = [call for call in calls if bool(call["response"].any())]
-    deltas = {}
-    for first, second in zip(conditional[0::2], conditional[1::2]):
-        # the two calls of a pair are on the same noisy images x_t
-        assert torch.equal(first["x_t"], second["x_t"])
-
-        # the denoised images x̂ = (x_t − √(1 − ᾱ) ε) / √ᾱ for r and r', in float64
-        level = int(first["timestep"][0])
-        alpha_bar = alphas_cumprod[level].double()
-        x_hats = [
-            (
-                call["x_t"].double()
-                - (1 - alpha_bar).sqrt() * call["prediction"].double()
-            )
-            / alpha_bar.sqrt()
-            for call in (first, second)
-        ]
-
-        # δ_s for each sample of the batch, after those of the earlier batches
-        batch = (x_hats[0] - x_hats[1]).flatten(1)
-        deltas[level] = torch.cat([deltas[level], batch]) if level in deltas else batch
-    return deltas
-
-
-def get_noise_variance(alphas_cumprod: torch.Tensor, level: int) -> float:
-    """t = (1 − ᾱ) / ᾱ, the noise variance of a DDPM step, in image units."""
-    # ᾱ of the step, in float64
-    alpha_bar = float(alphas_cumprod[level].double())
-    return (1 - alpha_bar) / alpha_bar
+    return run_estimator(compute_g_per_scale, denoiser, top_k)
 
 
 def compute_expected_traces(
@@ -418,6 +267,12 @@ def compute_explicit_matrices(calls: list[dict], alphas_cumprod: torch.Tensor) -
 
 @needs_per_scale
 def test_m_t_is_zero_when_the_denoiser_ignores_the_response():
+    """
+    Verify that, with a mock denoiser that ignores the response r, both responses give
+    the same noise prediction, so `compute_g_per_scale` returns a multiscale Fisher
+    information at a single noise level M_t(x) = 0: every eigenvalue is exactly 0 at
+    every noise level.
+    """
     out = compute_m_t(ResponseBlindDenoiser(get_alphas_cumprod()))
 
     # three eigenvalues at each of the five noise levels, all exactly zero
@@ -427,6 +282,10 @@ def test_m_t_is_zero_when_the_denoiser_ignores_the_response():
 
 @needs_per_scale
 def test_m_t_is_not_zero_when_the_denoiser_reads_the_response():
+    """
+    Verify that the same mock plus a term that reads r gives a positive
+    leading eigenvalue at every noise level, so the zero above is not vacuous.
+    """
     out = compute_m_t(ResponseReadingDenoiser(get_alphas_cumprod()))
 
     # the leading eigenvalue is positive at every noise level
@@ -434,6 +293,13 @@ def test_m_t_is_not_zero_when_the_denoiser_reads_the_response():
 
 
 def test_every_difference_is_zero_when_the_responses_are_identical():
+    """
+    Verify that, with no observation noise (response noise σ = 0) the two responses of
+    each sample are identical, r = r′, so every row of the matrix D that the
+    conditional-pair method draws, the difference of the noise predictions with the
+    two responses, ε(x_t, t, r) − ε(x_t, t, r′), is exactly zero at every noise level,
+    even with a mock denoiser that reads r.
+    """
     # σ = 0: the two responses of each sample are the same, r = r' = f(x̂(x_t))
     differences = compute_differences(sigma=0.0)
 
@@ -446,6 +312,11 @@ def test_every_difference_is_zero_when_the_responses_are_identical():
 
 
 def test_differences_are_not_zero_when_the_responses_differ():
+    """
+    Verify that, with the default response noise σ (0.22) the responses
+    differ, and the same mock gives a non-zero row for every sample at every noise
+    level.
+    """
     # the control: with the default σ, r and r' differ, and the denoiser reads them
     sigma = float(load_config("estimator").monte_carlo.observation_noise_sigma)
 
@@ -457,9 +328,16 @@ def test_differences_are_not_zero_when_the_responses_differ():
 @needs_per_scale
 def test_trace_of_m_t_is_the_sum_of_squared_differences_over_2nt():
     """
-    tr M̂_t = Σ_s |δ_s|² / (2 N t) at every noise level: the sum of all the eigenvalues
-    of the estimate equals that of the squared differences of the two denoised images
-    of each sample, over 2 N t. M̂_t has rank at most N, so N eigenpairs are all of it.
+    Verify that, at every noise level, the sum of all the eigenvalues of
+    the estimated multiscale Fisher information at that noise level is tr M̂_t = Σ_s
+    |δ_s|² / (2 N t), where δ_s = x̂(x_t, r) − x̂(x_t, r′) is the difference of the
+    two denoised images of sample s (Tweedie's formula, in image units, from the calls
+    recorded by the mock denoiser), N the number of samples and t the noise variance.
+
+    tr M̂_t = Σ_s |δ_s|² / (2 N t) at every noise level: the sum of all the
+    eigenvalues of the estimate equals that of the squared differences of the two
+    denoised images of each sample, over 2 N t. M̂_t has rank at most N, so N
+    eigenpairs are all of it.
     """
     # M̂_t with all its N eigenvalues, with a denoiser that records its calls
     denoiser = RecordingDenoiser(get_alphas_cumprod())
@@ -482,9 +360,18 @@ def test_trace_of_m_t_is_the_sum_of_squared_differences_over_2nt():
 @needs_per_scale
 def test_explicit_matrix_is_symmetric_and_positive_semidefinite():
     """
-    Explicit matrix check: at every noise level, the whole P x P matrix
-    M̂_t = Σ_s δ_s δ_sᵀ / (2 N t), built from the differences of the denoised images that
-    the estimator drew, is symmetric and positive semi-definite within numerical
+    Verify that, at every noise level, the whole estimated
+    multiscale Fisher information at that noise level, a P x P matrix over the P
+    pixels, M̂_t = Σ_s δ_s δ_sᵀ / (2 N t), built from the differences of the denoised
+    images that the estimator drew, is symmetric and positive semi-definite within
+    numerical tolerance (no eigenvalue below −1e-10 times the largest; its zero
+    eigenvalues come out around −1e-16); so is the matrix rebuilt from the eigenpairs
+    that `compute_g_per_scale` returns, and the two agree (relative difference below
+    1e-5).
+
+    Explicit matrix check: at every noise level, the whole P x P matrix M̂_t = Σ_s δ_s
+    δ_sᵀ / (2 N t), built from the differences of the denoised images that the
+    estimator drew, is symmetric and positive semi-definite within numerical
     tolerance; so is the matrix rebuilt from the N eigenpairs that compute_g_per_scale
     returns, and the two are the same matrix.
     """
@@ -548,13 +435,23 @@ def compute_trace_at(level: int, model: dict, spread: float) -> float:
 @needs_per_scale
 def test_the_curve_equals_t_times_the_trace_of_the_fisher_information():
     """
+    Verify that the trace of the estimated multiscale Fisher information at each noise
+    level, trace(M̂_t), equals the noise variance t times the trace of the Fisher
+    information of the responses about the noisy image, t · trace(⟨J_t⟩), at five
+    noise levels from log t = −6.1 to 8.2 (agreement within 1.3%, tolerance 10%). It
+    uses a linear-Gaussian model whose posterior means and Fisher information are
+    known in closed form, and draws the responses with the spread they have given the
+    noisy image; with the estimator's own draws, given the denoised image, the curve
+    is lower (8% to 99% of it in this model, the coarser the lower), which the test
+    also catches.
+
     The curve tr M̂_t equals t · trace(⟨J_t⟩) at noise levels from fine to coarse, J_t
     the Fisher information of the responses about the noisy image, for the
-    linear-Gaussian model (where J_t does not depend on the noisy image, so
-    ⟨J_t⟩ = J_t). The estimator draws the responses given the denoised image,
-    N(f(x̂), σ²); here they are drawn with the spread they have given the noisy image,
-    S_t = A Σ_t Aᵀ + σ² I (the same in every direction in this model), so that the
-    samples are exact. Monte-Carlo error about 2% with 4000 samples; tolerance 10%.
+    linear-Gaussian model (where J_t does not depend on the noisy image, so ⟨J_t⟩ =
+    J_t). The estimator draws the responses given the denoised image, N(f(x̂), σ²);
+    here they are drawn with the spread they have given the noisy image, S_t = A Σ_t
+    Aᵀ + σ² I (the same in every direction in this model), so that the samples are
+    exact. Monte-Carlo error about 2% with 4000 samples; tolerance 10%.
     """
     model = get_gaussian_model()
     alphas_cumprod = get_alphas_cumprod()

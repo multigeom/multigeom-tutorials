@@ -1,4 +1,6 @@
 """
+Check that the cells of notebook 5 set up, run and plot a local metric field job.
+
 Integration tests of notebooks/5_local_metric_field.ipynb (paper Fig. 5): they run the
 notebook's own cells.
 
@@ -45,6 +47,9 @@ from nb_helpers import (  # noqa: E402
     run_cells,
 )
 
+# the notebooks these tests cover (orders the tables of tests/README.md)
+pytestmark = pytest.mark.notebook(5)
+
 REFERENCE_PNG = FIG5_FIXTURES / "fig5_reference.png"
 
 
@@ -58,6 +63,9 @@ def at_repo_root(monkeypatch):
 
 
 def test_the_notebook_exists_and_has_the_cells_the_tests_use():
+    """
+    Verify that notebook 5 has the code cells that the other tests run.
+    """
     import json
 
     nb = json.loads(NOTEBOOK3.read_text())
@@ -67,6 +75,12 @@ def test_the_notebook_exists_and_has_the_cells_the_tests_use():
 
 
 def test_parameter_cell_gives_the_documented_job_and_its_cost(at_repo_root, capsys):
+    """
+    Verify that the parameter cell of notebook 5 sets the documented job (image 64, a
+    5 x 5 grid, the step rules of the multiscale Fisher information G and the Fisher
+    information of the responses J, Inception against ResNet-50) and prints its cost
+    (102 G(x) estimates and 102 J(x) evaluations).
+    """
     from multigeom.pipeline import metric_field_job as lmf
 
     ns = run_cells({}, SETUP3, notebook=NOTEBOOK3)
@@ -87,6 +101,10 @@ def test_parameter_cell_gives_the_documented_job_and_its_cost(at_repo_root, caps
 def test_plot_cell_draws_the_reference_figure_from_stored_results(
     at_repo_root, tmp_path, monkeypatch
 ):
+    """
+    Verify that the plot cell of notebook 5 draws Fig. 5 from stored results like the
+    reference picture.
+    """
     ns = run_cells({}, SETUP3, notebook=NOTEBOOK3)  # parameter cell
     lmf, job = ns["lmf"], ns["job"]
     folder = tmp_path / "runs" / "metric_field" / f"img{job.img_idx:04d}"
@@ -116,6 +134,10 @@ def test_plot_cell_draws_the_reference_figure_from_stored_results(
 def test_plot_cell_says_so_when_there_are_no_results(
     at_repo_root, tmp_path, monkeypatch, capsys
 ):
+    """
+    Verify that, without results, the plot cell says "Nothing to plot yet" instead of
+    failing.
+    """
     ns = run_cells({}, SETUP3, notebook=NOTEBOOK3)
     monkeypatch.setattr(ns["lmf"], "REPO", tmp_path)  # an empty results folder
     capsys.readouterr()
@@ -139,6 +161,10 @@ def _have_inputs() -> bool:
 )
 def test_notebook_runs_a_small_job_end_to_end(at_repo_root, tmp_path, monkeypatch):
     """
+    Verify that notebook 5 runs a small job (the Fisher information of the responses
+    J(x) only, V1, a 3 x 3 grid) from launch to plot in a scratch copy of the
+    repository, and gives symmetric metrics.
+
     Parameters -> launch -> wait -> plot, with J(x) only on a 3 x 3 grid for V1, in a
     scratch copy of the repository.
     """

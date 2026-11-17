@@ -1,4 +1,8 @@
 """
+Check that notebook 10 still computes and plots the coding spectrum, what the responses
+take off the error of the denoiser at each noise level, and the information it adds up
+to.
+
 Integration tests of notebooks/10_coding_spectrum.ipynb: the coding spectrum ρ(τ) of the
 inception V1 and V4 models, from responses to the 200 test images, under the envelope
 spectrum, with the fine-end limit t · <trace J(x)>.
@@ -56,6 +60,9 @@ from nb_helpers import (  # noqa: E402
     run_notebook10,
 )
 
+# the notebooks these tests cover (orders the tables of tests/README.md)
+pytestmark = pytest.mark.notebook(10)
+
 N_IMAGES, N_LEVELS = 200, 31
 
 # Recomputed on another device (other noise draws and responses for the same images):
@@ -78,6 +85,13 @@ def plot_difference(spectra: dict, traces: dict, tmp_path: Path) -> tuple:
 
 
 def test_fixture_is_wellformed():
+    """
+    Verify that the stored coding spectrum of notebook 10 has 31 increasing noise
+    levels and, for V1 and V4 and each of the 200 test images, the four terms of the
+    curve at each level (positive errors without and with the responses, non-negative
+    changes made by the responses) and a positive trace of the Fisher information of
+    the responses J(x).
+    """
     spectra, traces = coding_inputs()
 
     for area in AREAS:
@@ -98,6 +112,10 @@ def test_fixture_is_wellformed():
 
 
 def test_notebook_plot_reproduces_reference(tmp_path):
+    """
+    Verify that the plot cell of notebook 10 draws the coding spectrum like the
+    reference picture, and saves it.
+    """
     mean_abs, bad = plot_difference(*coding_inputs(), tmp_path)
     assert mean_abs < MEAN_ABS_TOL and bad < BAD_PIXEL_FRACTION, (
         f"the figure differs from the reference: mean |diff| = {mean_abs:.5f} (tol "
@@ -110,7 +128,14 @@ def test_notebook_plot_reproduces_reference(tmp_path):
 
 
 def test_plot_comparison_detects_changes(tmp_path):
-    """Guards against a vacuous comparison: a different V4 curve must fail it."""
+    """
+    Verify that, with V4's coding spectrum (what the responses take off the
+    denoising error at each noise level), ρ(τ), doubled at every noise level (its
+    error with the responses moved twice as far from the error without them), the
+    coding spectrum figure differs from the reference picture beyond the tolerance of
+    `test_notebook_plot_reproduces_reference` (mean |difference| ≥ 0.001, or ≥ 0.2% of
+    the pixels off by more than 0.1), so that that test cannot pass by accident.
+    """
     spectra, traces = coding_inputs()
 
     # V4's ρ made twice larger: its error with the responses moved twice as far from
@@ -127,6 +152,12 @@ def test_plot_comparison_detects_changes(tmp_path):
 @pytest.mark.slow
 def test_recompute_matches_fixture():
     """
+    Verify that the coding spectrum recomputed from the V1 and V4 checkpoints (about 7
+    min on a GPU) has the stored noise levels, the stored mean errors without and with
+    the responses (within 2%) and the mutual information between the responses and the
+    image, ½∫ρ dτ (within 1 nat, both ways), and the encoders give the stored traces
+    of the Fisher information of the responses J(x) (within 0.1%).
+
     Recompute the coding spectrum of both areas and the traces of J(x) from the
     checkpoints and the data (about 7 min on a GPU), and compare with the stored ones:
     the noise levels exactly, the mean errors and ½ ∫ ρ dτ (both ways) within their

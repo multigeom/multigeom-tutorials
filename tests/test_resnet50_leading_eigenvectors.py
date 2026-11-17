@@ -1,4 +1,8 @@
 """
+Check that notebook 3 still reproduces the leading eigenvectors of the multiscale Fisher
+information G(x) and of the Fisher information of the responses J(x) for the ResNet-50
+encoder (paper Fig. 4B-C).
+
 Integration tests, resnet50 encoder: do we reproduce the notebook's Fig. 4B-C
 (notebooks/3_leading_eigenvectors_of_G.ipynb, section 6: the leading eigenvectors of
 G(x) and J(x) of the inception and resnet50 encoders, V1 block above the V4 block)?
@@ -51,10 +55,17 @@ from nb_helpers import (  # noqa: E402
 
 from nb_fixtures import notebook_run  # noqa: E402,F401  (pytest fixture)
 
+# the notebooks these tests cover (orders the tables of tests/README.md)
+pytestmark = pytest.mark.notebook(3)
+
 ENCODER = "resnet50"
 
 
 def test_fixture_is_wellformed():
+    """
+    Verify that the stored ResNet-50 eigenvectors of Fig. 4B-C (notebook 3) have the
+    expected shape and unit norm.
+    """
     _, records = fixture_inputs()
     for area in AREAS:
         for metric in ("G", "J"):
@@ -64,6 +75,10 @@ def test_fixture_is_wellformed():
 
 
 def test_notebook_plot_reproduces_reference(tmp_path):
+    """
+    Verify that the plot cell of notebook 3 draws Fig. 4B-C like the reference
+    picture.
+    """
     ckpts, records = fixture_inputs()
     mean_abs, bad = plot_difference("fig4", ckpts, records, tmp_path)
     assert mean_abs < MEAN_ABS_TOL and bad < BAD_PIXEL_FRACTION, (
@@ -74,7 +89,13 @@ def test_notebook_plot_reproduces_reference(tmp_path):
 
 
 def test_plot_comparison_detects_changes(tmp_path):
-    """Guards against a vacuous comparison: other resnet50 eigenvectors must fail it."""
+    """
+    Verify that, with the ResNet-50 eigenvectors of the multiscale Fisher
+    information G(x) and the Fisher information of the responses J(x) of V1 replaced
+    by those of V4, Fig. 4B-C differs from the reference picture beyond the tolerance
+    of `test_notebook_plot_reproduces_reference` (mean |difference| ≥ 0.001, or ≥ 0.2%
+    of the pixels off by more than 0.1), so that that test cannot pass by accident.
+    """
     ckpts, records = fixture_inputs()
     records[(ENCODER, "V1")]["G_eigenvectors"] = records[(ENCODER, "V4")][
         "G_eigenvectors"
@@ -89,10 +110,15 @@ def test_plot_comparison_detects_changes(tmp_path):
 @pytest.mark.slow
 def test_recompute_matches_fixture(notebook_run):
     """
+    Verify that the ResNet-50 eigenvectors recomputed from the checkpoints agree with
+    the stored ones: the leading 4 of the Fisher information of the responses J(x)
+    with absolute cosine |cos| > 0.99, the leading one of the multiscale Fisher
+    information G(x) with |cos| > 0.9.
+
     Compare the resnet50 eigenvectors the notebook computes from the checkpoints with
-    the stored ones: J(x) must agree (up to sign and small numerical differences between
-    devices); of the seeded Monte-Carlo estimate G(x) only the leading eigenvector is
-    compared across devices.
+    the stored ones: J(x) must agree (up to sign and small numerical differences
+    between devices); of the seeded Monte-Carlo estimate G(x) only the leading
+    eigenvector is compared across devices.
     """
     import torch
 

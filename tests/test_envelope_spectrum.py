@@ -1,4 +1,7 @@
 """
+Check that notebook 9 still computes and plots the envelope spectrum, the error of the
+denoiser without the responses at each noise level.
+
 Integration tests of notebooks/9_envelope_spectrum.ipynb: the envelope spectrum
 ρ^env(τ), the error of the unconditional denoiser per unit of noise variance, on the
 200 test images, for the null tokens of the inception V1 and V4 models, with the
@@ -53,6 +56,9 @@ from nb_helpers import (  # noqa: E402
     run_notebook9,
 )
 
+# the notebooks these tests cover (orders the tables of tests/README.md)
+pytestmark = pytest.mark.notebook(9)
+
 N_IMAGES, N_LEVELS, P = 200, 31, 64 * 64
 
 # The mean curve over the 200 test images, recomputed on another device: within 2% (the
@@ -69,6 +75,12 @@ def plot_difference(spectra: dict, variances, gaussian, tmp_path: Path) -> tuple
 
 
 def test_fixture_is_wellformed():
+    """
+    Verify that the stored envelope spectrum of notebook 9 has 31 increasing noise
+    levels, a positive curve for each of the 200 test images and both models, the
+    variances of the training images largest first, and a Gaussian bound that
+    decreases from below the number of pixels P.
+    """
     spectra, variances, gaussian = envelope_inputs()
 
     # 31 increasing noise levels, a positive curve per image and model
@@ -89,6 +101,10 @@ def test_fixture_is_wellformed():
 
 
 def test_notebook_plot_reproduces_reference(tmp_path):
+    """
+    Verify that the plot cell of notebook 9 draws the envelope spectrum like the
+    reference picture, and saves it.
+    """
     mean_abs, bad = plot_difference(*envelope_inputs(), tmp_path)
     assert mean_abs < MEAN_ABS_TOL and bad < BAD_PIXEL_FRACTION, (
         f"the figure differs from the reference: mean |diff| = {mean_abs:.5f} (tol "
@@ -101,7 +117,14 @@ def test_notebook_plot_reproduces_reference(tmp_path):
 
 
 def test_plot_comparison_detects_changes(tmp_path):
-    """Guards against a vacuous comparison: a different V4 curve must fail it."""
+    """
+    Verify that, with the V4 model's envelope spectrum (the denoising error
+    without the responses at each noise level), ρ^env(τ), multiplied by 1.5 at every
+    noise level, the envelope spectrum figure differs from the reference picture
+    beyond the tolerance of `test_notebook_plot_reproduces_reference` (mean
+    |difference| ≥ 0.001, or ≥ 0.2% of the pixels off by more than 0.1), so that that
+    test cannot pass by accident.
+    """
     spectra, variances, gaussian = envelope_inputs()
 
     # the V4 model's error, made 1.5 times larger
@@ -113,6 +136,10 @@ def test_plot_comparison_detects_changes(tmp_path):
 @pytest.mark.slow
 def test_recompute_matches_fixture():
     """
+    Verify that the spectrum recomputed from the V1 and V4 checkpoints has the stored
+    noise levels and mean curves (within 2%), and the training images give the stored
+    variances and Gaussian bound.
+
     Recompute the spectrum of both models and the Gaussian bound from the checkpoints
     and the data, and compare with the stored ones: the noise levels exactly, the mean
     curves within 2% (identical on the device the fixture was made on), the variances

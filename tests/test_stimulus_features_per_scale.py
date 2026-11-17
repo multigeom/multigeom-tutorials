@@ -1,4 +1,7 @@
 """
+Check that notebook 8 still computes and plots the stimulus features at a single noise
+level, M_t^env(x), for the frog.
+
 Integration tests of notebooks/8_stimulus_features_per_scale.ipynb: the leading
 eigenvectors of the stimulus features M_t^env(x) at each noise level, from the
 unconditional model of the inception V1 diffusion model, next to those of M_t(x) of V1
@@ -54,6 +57,9 @@ from nb_helpers import (  # noqa: E402
     stimulus_inputs,
 )
 
+# the notebooks these tests cover (orders the tables of tests/README.md)
+pytestmark = pytest.mark.notebook(8)
+
 N_LEVELS, N_EIGVECS, P = 24, 4, 64 * 64
 
 # The leading eigenvector is compared at the coarse noise levels only, where it is
@@ -71,6 +77,11 @@ def plot_difference(examples: dict, env: dict, results: dict, tmp_path: Path) ->
 
 
 def test_fixture_is_wellformed():
+    """
+    Verify that the stored stimulus features of notebook 8 (the frog) have the noise
+    levels of notebook 7's fixture and 4 positive decreasing eigenvalues and unit-norm
+    eigenvectors at each level.
+    """
     examples, env, results = stimulus_inputs()
     record = env["frog"]
 
@@ -87,6 +98,11 @@ def test_fixture_is_wellformed():
 
 
 def test_notebook_plot_reproduces_reference(tmp_path):
+    """
+    Verify that the plot cell of notebook 8 draws the figure of the frog (stimulus
+    features, then V1 and V4 from notebook 7's fixture) like the reference picture,
+    and saves it.
+    """
     mean_abs, bad = plot_difference(*stimulus_inputs(), tmp_path)
     assert mean_abs < MEAN_ABS_TOL and bad < BAD_PIXEL_FRACTION, (
         f"the figure differs from the reference: mean |diff| = {mean_abs:.5f} (tol "
@@ -100,7 +116,15 @@ def test_notebook_plot_reproduces_reference(tmp_path):
 
 
 def test_plot_comparison_detects_changes(tmp_path):
-    """Guards against a vacuous comparison: changing the eigenvectors must fail it."""
+    """
+    Verify that, with the four leading eigenvectors of the stimulus features
+    at a single noise level (what stays uncertain about the image given its noisy
+    version), M_t^env(x), drawn in reverse order (the 4th in place of the 1st) at
+    every noise level, the figure of the frog differs from the reference picture
+    beyond the tolerance of `test_notebook_plot_reproduces_reference` (mean
+    |difference| ≥ 0.001, or ≥ 0.2% of the pixels off by more than 0.1), so that that
+    test cannot pass by accident.
+    """
     examples, env, results = stimulus_inputs()
 
     # reverse the order of the eigenvectors of the stimulus features at every level
@@ -112,6 +136,11 @@ def test_plot_comparison_detects_changes(tmp_path):
 @pytest.mark.slow
 def test_recompute_matches_fixture():
     """
+    Verify that the stimulus features of the frog recomputed from the V1 checkpoint
+    have the stored settings and noise levels, and at the coarse levels (log noise
+    variance τ ≥ 3) the stored leading eigenvector (absolute cosine |cos| > 0.9) and
+    leading eigenvalue (within 30%).
+
     Compare the stimulus features that the notebook computes for the frog with the
     stored ones. They are a seeded Monte-Carlo estimate: identical on the device the
     fixture was made on, close on another; only the leading eigenvector at coarse
