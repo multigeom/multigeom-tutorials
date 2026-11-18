@@ -224,14 +224,14 @@ Check that the estimator of the multiscale Fisher information G(x) at a single n
 
 #### Notebooks 7, 8, 9, 10: [per_scale_helpers](unit_tests/test_per_scale_helpers.py)
 
-Check the summary and integration helpers shared by notebooks 7 to 10 on inputs whose answer is known.
+Check the helpers shared by notebooks 7 to 10 (sign alignment, Gaussian bound, integration) on inputs whose answer is known.
 
 | Test | What it checks | GitHub Actions |
 |---|---|---|
 | `align_signs_flips_only_signs_to_agree_with_coarser_levels` | Verify that `align_signs` (`figures/per_scale.py`, notebooks 7 and 8) only flips signs, makes each eigenvector agree with the same one at the next coarser level, and gives the coarsest a positive sum. | yes |
-| `compute_summary_on_known_records` | Verify that `compute_summary` (`figures/per_scale.py`, notebook 7) gives an absolute cosine \|cos\| of 0 between images with orthogonal eigenvectors and 1 with the same one, and the fraction of images where V4's leading eigenvalue is larger. | yes |
 | `compute_gaussian_env_on_known_variances` | Verify that `compute_gaussian_env` (`figures/per_scale.py`, notebook 9), the envelope spectrum of a Gaussian prior, gives the sum over the directions of their variance c_i over c_i plus the noise variance t, Σ_i c_i / (c_i + t), on known variances: the number of directions that vary at tiny noise, ½ per unit-variance direction at t = 1, and the total variance over t, tr C / t, at huge noise. | yes |
 | `compute_information_on_known_curves` | Verify that `compute_information` (`figures/per_scale.py`, notebook 10) gives half the area under the curve of each image (trapezoids over log t), the mean over the images and its standard error, on two piecewise-linear curves of known area. | yes |
+| `compute_normalized_on_known_values` | Verify that `compute_normalized` (`figures/per_scale.py`, notebooks 7, 8 and 10) divides the values by the largest value of the reference: a curve by its own maximum, and eigenvalues by the largest leading eigenvalue, so that the second ones keep their size relative to it. | yes |
 
 #### Notebook 8: [env, in the multigeom package](https://github.com/multigeom/multigeom/blob/main/tests/unit/test_env.py)
 

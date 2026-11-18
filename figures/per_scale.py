@@ -7,9 +7,8 @@ eigenvectors, and the envelope and coding spectra.
     compute_per_scale   M_t(x), the integrand of G(x), at each level (notebooks 7, 8)
     compute_env         M_t^env(x), the stimulus features, at each level (notebook 8)
     align_signs         the signs of the eigenvectors, for display
+    compute_normalized  curves over the largest value of a reference, to compare shapes
     plot_per_scale      the figure of one image: each block's eigenvectors per level
-    compute_summary     how the leading eigenvector depends on the image (notebook 7)
-    plot_summary
     load_test_images    the test images of notebook 4 (notebook 9)
     compute_prior_variances   the variances of the training images (notebook 9)
     compute_gaussian_env      the envelope spectrum of a Gaussian prior (notebook 9)
@@ -46,9 +45,15 @@ SPECTRUM_COLORS = {"V1": "#000000", "V4": "#8C8C8C", "gaussian": "#CC79A7"}
 LIMIT_COLOR = "#BBBBBB"
 
 # the layout of the figure of one image: the height of its rows (in units of a tile),
-# its width, the height with two blocks, and the extra height of each further block
+# its width, the height with two blocks and one panel of eigenvalues, and the extra
+# height of each further block and of each further panel of eigenvalues
 EIGVEC_ROW, BLOCK_GAP, VALUES_GAP, VALUES_ROW = 1.0, 0.45, 0.9, 3.2
-FIGURE_WIDTH, TWO_BLOCK_HEIGHT, BLOCK_HEIGHT = 16.5, 8.6, 3.05
+FIGURE_WIDTH, TWO_BLOCK_HEIGHT, BLOCK_HEIGHT, VALUES_HEIGHT = 16.5, 8.6, 3.05, 2.8
+
+# the labels of the panels of eigenvalues: the areas, normalized, and the stimulus
+# features, as they are
+AREAS_LABEL = "eigenvalues of $M_t(x)$\nover the largest\n$\\lambda_1$ of each area"
+STIMULUS_LABEL = "eigenvalues\nof $M_t^{\\rm env}(x)$"
 
 
 def load_examples(params: dict, seed: int) -> dict:
@@ -147,21 +152,32 @@ def align_signs(eigvecs: torch.Tensor) -> torch.Tensor:
     return aligned
 
 
+def compute_normalized(values: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    """
+    `values` divided by the largest value of `reference`: a curve over its own maximum,
+    or the eigenvalues of a matrix over its largest leading eigenvalue, so that curves
+    of different sizes can be compared by their shape.
+    """
+    return values / reference.max()
+
+
 def get_plot_data(image: torch.Tensor, records: dict) -> dict:
     """
     The data of the figure of one image: the image [64, 64], tau = log t [J], and for
-    each block its eigenvalues [J, k] and its eigenvectors [J, k, P] with the signs of
-    `align_signs`. `records` maps each block (an area, or "stimulus") to its
-    PerScaleOutput.
+    each block its eigenvalues [J, k], the same over its largest leading eigenvalue
+    ("normalized"), and its eigenvectors [J, k, P] with the signs of `align_signs`.
+    `records` maps each block (an area, or "stimulus") to its PerScaleOutput.
     """
     # the image, and the noise levels (the same for every block)
     first = next(iter(records.values()))
     data = {"image": image.reshape(64, 64).numpy(), "log_t": first.log_tau.numpy()}
 
-    # the eigenvalues and the signed eigenvectors of each block
+    # the eigenvalues, raw and normalized, and the signed eigenvectors of each block
     for name, record in records.items():
+        values = record.eigenvalues.numpy()
         data[name] = {
-            "eigenvalues": record.eigenvalues.numpy(),
+            "eigenvalues": values,
+            "normalized": compute_normalized(values, values[:, 0]),
             "eigenvectors": align_signs(record.eigenvectors).numpy(),
         }
     return data
@@ -215,42 +231,44 @@ def draw_block(
     return tiles[0][0]
 
 
-def draw_eigenvalues(ax: plt.Axes, data: dict, names: list) -> None:
+def draw_eigenvalues(
+    ax: plt.Axes, data: dict, names: list, key: str, ylabel: str
+) -> None:
     """
-    The eigenvalues of each block against tau = log t, the leading one thick and the
-    others thin, in the columns of the tiles (one per noise level).
+    The eigenvalues of each block of `names` against tau = log t, raw ("eigenvalues")
+    or over the block's largest leading eigenvalue ("normalized") as `key` says, the
+    leading one thick and the others thin, in the columns of the tiles (one per noise
+    level), on a linear axis from 0.
     """
     # one line per eigenvalue and block
-    n_levels, n_eigvecs = data[names[0]]["eigenvalues"].shape
+    n_levels, n_eigvecs = data[names[0]][key].shape
     for name in names:
         for k in range(n_eigvecs):
             ax.plot(
                 np.arange(n_levels),
-                data[name]["eigenvalues"][:, k],
+                data[name][key][:, k],
                 color=BLOCK_COLORS[name],
                 lw=2.0 if k == 0 else 0.8,
                 alpha=1.0 if k == 0 else 0.6,
                 label=name if k == 0 else None,
             )
 
-    # the columns of the tiles, labelled with tau = log t; a log scale for the values
+    # the columns of the tiles, labelled with tau = log t; a linear axis for the values
     labels = [f"{value:.1f}".replace("-", "−") for value in data["log_t"]]
     ax.set_xlim(-0.5, n_levels - 0.5)
     ax.set_xticks(np.arange(n_levels), labels, fontsize=7)
-    ax.set_yscale("log")
+    ax.set_ylim(bottom=0)
     ax.set_xlabel(r"$\tau = \log t$   (t: variance of the noise, in image units)")
-    matrices = (
-        r"$M_t^{\rm env}(x)$ and $M_t(x)$" if "stimulus" in names else r"$M_t(x)$"
-    )
-    ax.set_ylabel("eigenvalues\nof " + matrices)
+    ax.set_ylabel(ylabel)
 
-    # which line is which
+    # which line is which, where the lines are not (the values are near 0 at the coarse
+    # noise scales, on the right)
     ax.legend(
         title=rf"thick: $\lambda_1$, thin: $\lambda_2$ to $\lambda_{n_eigvecs}$",
         fontsize=8,
         title_fontsize=8,
         frameon=False,
-        loc="lower left",
+        loc="upper right",
     )
 
 
@@ -260,21 +278,31 @@ def plot_per_scale(
     """
     The figure of one image: the image (A); for each block of `records` (an area, or
     "stimulus", mapped to its PerScaleOutput, in that order) its leading eigenvectors at
-    each noise level, one row per eigenvector and one column per level (B, C, ...); and
-    their eigenvalues against tau = log t (last panel). Returns the figure and the data
-    it shows.
+    each noise level, one row per eigenvector and one column per level (B, C, ...); then
+    the eigenvalues against tau = log t, on linear axes: those of the stimulus features
+    in their own panel, if there are any, and those of the areas, each over its largest
+    leading eigenvalue, in the last panel. Returns the figure and the data it shows.
     """
     # the data drawn, its blocks, and the numbers of noise levels and eigenvectors
     data = get_plot_data(image, records)
     names = list(records)
     n_levels, n_eigvecs = data[names[0]]["eigenvalues"].shape
 
+    # the panels of eigenvalues: the stimulus features as they are, then the areas,
+    # normalized to compare where along tau each one sits
+    areas = [name for name in names if name != "stimulus"]
+    panels = [(areas, "normalized", AREAS_LABEL)]
+    if "stimulus" in names:
+        panels.insert(0, (["stimulus"], "eigenvalues", STIMULUS_LABEL))
+
     # the grid: the image on the left; for each block one row per eigenvector and one
     # column per noise level, blocks apart by a gap; the eigenvalues at the bottom
     block_rows = [EIGVEC_ROW] * n_eigvecs
     heights = (block_rows + [BLOCK_GAP]) * (len(names) - 1) + block_rows
-    heights = heights + [VALUES_GAP, VALUES_ROW]
+    first_value_row = len(heights) + 1
+    heights = heights + [VALUES_GAP, VALUES_ROW] * len(panels)
     height = TWO_BLOCK_HEIGHT + BLOCK_HEIGHT * (len(names) - 2)
+    height = height + VALUES_HEIGHT * (len(panels) - 1)
     fig = plt.figure(figsize=(FIGURE_WIDTH, height), dpi=params["screen_dpi"])
     grid = fig.add_gridspec(
         len(heights),
@@ -297,99 +325,20 @@ def plot_per_scale(
         for block, name in enumerate(names)
     ]
 
-    # last panel: the eigenvalues, in the columns of the tiles
-    ax_values = fig.add_subplot(grid[-1, 3:])
-    draw_eigenvalues(ax_values, data, names)
+    # the panels of eigenvalues, in the columns of the tiles
+    value_axes = []
+    for index, (blocks, key, ylabel) in enumerate(panels):
+        ax = fig.add_subplot(grid[first_value_row + 2 * index, 3:])
+        draw_eigenvalues(ax, data, blocks, key, ylabel)
+        value_axes.append(ax)
 
     # the panel letters, left of the names of the rows and blocks
-    axes = [ax_image, *first_tiles, ax_values]
+    axes = [ax_image, *first_tiles, *value_axes]
     for letter, ax in zip("ABCDEFG", axes):
         panel_label(fig, ax, letter, dx=-0.01 if letter == "A" else -0.04)
 
     # the title, on two lines
     fig.suptitle(suptitle, fontsize=11, y=0.99)
-    return fig, data
-
-
-def compute_summary(results: dict, areas: list) -> dict:
-    """
-    Per noise level, across the example images: for each area, the mean |cos| between
-    the leading eigenvectors of two different images, and the leading eigenvalues
-    (all, and their median); and the fraction of images whose leading eigenvalue is
-    larger in the second area than in the first.
-    """
-    # the image names, and the noise levels
-    names = list(results[areas[0]])
-    summary = {"log_t": results[areas[0]][names[0]].log_tau}
-
-    # every pair of two different images (in both orders)
-    pairs = ~torch.eye(len(names), dtype=torch.bool)
-    for area in areas:
-        # the leading eigenvectors [images, J, P] and eigenvalues [images, J]
-        vectors = torch.stack(
-            [results[area][name].eigenvectors[:, 0] for name in names]
-        )
-        values = torch.stack([results[area][name].eigenvalues[:, 0] for name in names])
-
-        # |cos| between two images at each level [J, images, images], mean over pairs
-        cos = torch.einsum("ajp,bjp->jab", vectors, vectors).abs()
-        summary[f"similarity_{area}"] = cos[:, pairs].mean(dim=1)
-
-        # the leading eigenvalues, and their median over the images
-        summary[f"values_{area}"] = values
-        summary[f"median_{area}"] = values.median(dim=0).values
-
-    # the fraction of images where the second area has the larger leading eigenvalue
-    larger = summary[f"values_{areas[1]}"] > summary[f"values_{areas[0]}"]
-    summary["second_larger"] = larger.float().mean(dim=0)
-    return summary
-
-
-def plot_summary(summary: dict, params: dict) -> tuple[plt.Figure, dict]:
-    """
-    The summary across the example images against tau = log t, for each area: the mean
-    |cos| between the leading eigenvectors of two images (A), and the median leading
-    eigenvalue (B). Returns the figure and the data it shows.
-    """
-    # the data drawn
-    areas = params["areas"]
-    data = {"log_t": summary["log_t"].numpy()}
-    for area in areas:
-        data[area] = {
-            "similarity": summary[f"similarity_{area}"].numpy(),
-            "median": summary[f"median_{area}"].numpy(),
-        }
-
-    # two panels, one line per area in each
-    fig, (ax_cos, ax_values) = plt.subplots(
-        1, 2, figsize=(11, 3.6), dpi=params["screen_dpi"]
-    )
-    for area in areas:
-        style = {"color": AREA_COLORS[area], "marker": "o", "ms": 3, "label": area}
-        ax_cos.plot(data["log_t"], data[area]["similarity"], **style)
-        ax_values.plot(data["log_t"], data[area]["median"], **style)
-
-    # A: how much the leading eigenvector depends on the image
-    ax_cos.set_ylim(0, 1.02)
-    ax_cos.set_xlabel(r"$\tau = \log t$")
-    ax_cos.set_ylabel("mean |cos| between the leading\neigenvectors of two images")
-    ax_cos.legend(frameon=False)
-
-    # B: the leading eigenvalue
-    ax_values.set_yscale("log")
-    ax_values.set_xlabel(r"$\tau = \log t$")
-    ax_values.set_ylabel("leading eigenvalue of $M_t(x)$\n(median over the images)")
-
-    # the panel letters, and the title
-    for letter, ax in zip("AB", (ax_cos, ax_values)):
-        panel_label(fig, ax, letter)
-    n_images = summary[f"values_{areas[0]}"].shape[0]
-    fig.suptitle(
-        f"Across the {n_images} example images ({params['encoder']}, "
-        f"{params['n_samples']} samples per noise scale)",
-        fontsize=11,
-        y=1.03,
-    )
     return fig, data
 
 
@@ -506,38 +455,44 @@ def compute_information(
 def plot_coding_spectrum(spectra: dict, params: dict) -> tuple[plt.Figure, dict]:
     """
     The coding spectrum ρ(τ) of each area of `spectra` (area → CodingSpectrumOutput)
-    against tau = log t, on the same axes as the envelope spectrum ρ^env(τ) of the
-    first area's model, on a log scale (noise scales where ρ is not positive are left
-    out); the legend gives ½ ∫ ρ dτ of each area. Returns the figure and the data it
-    shows.
+    against tau = log t, on linear axes. A: on the same axes as the envelope spectrum
+    ρ^env(τ) of the first area's model, fitted to ρ (ρ^env, hundreds of times larger
+    at fine noise scales, is above the axes there); the legend gives ½ ∫ ρ dτ of each
+    area. B: each ρ over its own maximum, to compare where along tau each area sits.
+    Returns the figure and the data it shows.
     """
-    # the data drawn: the noise scales, the envelope, and ρ and ½ ∫ ρ dτ of each area
+    # the data drawn: the noise scales, the envelope, and per area ρ, ρ over its
+    # maximum and ½ ∫ ρ dτ
     areas = list(spectra)
     log_t = spectra[areas[0]].log_tau.double()
     data = {"log_t": log_t.numpy()}
     data["env"] = spectra[areas[0]].env.double().mean(dim=0).numpy()
     for area in areas:
         record = spectra[area]
+        rho = record.rho.double().numpy()
         data[area] = {
-            "rho": record.rho.double().numpy(),
+            "rho": rho,
+            "normalized": compute_normalized(rho, rho),
             "information": compute_information(record.env - record.coded, log_t)[0],
         }
 
-    # one panel: the envelope, then ρ of each area where it is positive
-    fig, ax = plt.subplots(figsize=(6.5, 4.4), dpi=params["screen_dpi"])
-    ax.plot(
+    # two panels side by side
+    fig, (ax_rho, ax_shape) = plt.subplots(
+        1, 2, figsize=(12, 4.4), dpi=params["screen_dpi"]
+    )
+
+    # A: the envelope, then ρ of each area, and the line ρ = 0
+    ax_rho.plot(
         data["log_t"],
         data["env"],
         color=SPECTRUM_COLORS["V1"],
         lw=2,
-        label=r"$\rho^{\rm env}(\tau)$",
+        label=r"$\rho^{\rm env}(\tau)$ (above the axes at fine scales)",
     )
     for area in areas:
-        rho = data[area]["rho"]
-        positive = rho > 0
-        ax.plot(
-            data["log_t"][positive],
-            rho[positive],
+        ax_rho.plot(
+            data["log_t"],
+            data[area]["rho"],
             "o-",
             ms=3,
             color=AREA_COLORS[area],
@@ -545,17 +500,40 @@ def plot_coding_spectrum(spectra: dict, params: dict) -> tuple[plt.Figure, dict]
             label=rf"$\rho(\tau)$ {area}: $\frac{{1}}{{2}}\int \rho\, d\tau$ = "
             f"{data[area]['information']:.1f} nats",
         )
-    ax.set_yscale("log")
-    ax.set_xlabel(r"$\tau = \log t$")
-    ax.set_ylabel(r"$\rho(\tau)$ and $\rho^{\rm env}(\tau)$")
-    ax.legend(fontsize=8, frameon=False, loc="upper right")
+    ax_rho.axhline(0.0, color=LIMIT_COLOR, lw=0.8)
 
-    # the title
+    # A: a linear axis fitted to ρ, with room for the legend above the curves
+    lowest = min(data[area]["rho"].min() for area in areas)
+    highest = max(data[area]["rho"].max() for area in areas)
+    ax_rho.set_ylim(min(lowest, 0.0) - 0.05 * highest, 1.4 * highest)
+    ax_rho.set_xlabel(r"$\tau = \log t$")
+    ax_rho.set_ylabel(r"$\rho(\tau)$ and $\rho^{\rm env}(\tau)$")
+    ax_rho.legend(fontsize=8, frameon=False, loc="upper left")
+
+    # B: each ρ over its own maximum, and the line ρ = 0
+    for area in areas:
+        ax_shape.plot(
+            data["log_t"],
+            data[area]["normalized"],
+            "o-",
+            ms=3,
+            color=AREA_COLORS[area],
+            lw=2,
+            label=area,
+        )
+    ax_shape.axhline(0.0, color=LIMIT_COLOR, lw=0.8)
+    ax_shape.set_xlabel(r"$\tau = \log t$")
+    ax_shape.set_ylabel(r"$\rho(\tau)$ over its maximum")
+    ax_shape.legend(fontsize=8, frameon=False, loc="upper left")
+
+    # the panel letters, and the title
+    for letter, ax in zip("AB", (ax_rho, ax_shape)):
+        panel_label(fig, ax, letter)
     fig.suptitle(
         f"Coding spectrum of the {len(spectra[areas[0]].env)} test images"
-        f" ({params['encoder']} models,\n{params['n_noise']} noisy versions and"
+        f" ({params['encoder']} models, {params['n_noise']} noisy versions and"
         " responses per image and noise scale)",
         fontsize=11,
-        y=1.04,
+        y=1.03,
     )
     return fig, data

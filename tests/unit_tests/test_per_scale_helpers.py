@@ -1,6 +1,6 @@
 """
-Check the summary and integration helpers shared by notebooks 7 to 10 on inputs whose
-answer is known.
+Check the helpers shared by notebooks 7 to 10 (sign alignment, Gaussian bound,
+integration) on inputs whose answer is known.
 
 Unit tests of the helpers of notebooks 7 to 10 (figures/per_scale.py) on inputs whose
 answer is known: no data, checkpoints or GPU, and no multigeom newer than the released
@@ -10,11 +10,10 @@ one.
 from __future__ import annotations
 
 import pytest
-from types import SimpleNamespace
 
 import torch
 
-from figures.per_scale import align_signs, compute_summary
+from figures.per_scale import align_signs
 
 # the notebooks these tests cover (orders the tables of tests/README.md)
 pytestmark = pytest.mark.notebook(7, 8, 9, 10)
@@ -38,35 +37,6 @@ def test_align_signs_flips_only_signs_to_agree_with_coarser_levels():
     # each eigenvector agrees with the next coarser level; the coarsest sum to > 0
     assert bool(((aligned[:-1] * aligned[1:]).sum(dim=2) >= 0).all())
     assert bool((aligned[-1].sum(dim=1) >= 0).all())
-
-
-def test_compute_summary_on_known_records():
-    """
-    Verify that `compute_summary` (`figures/per_scale.py`, notebook 7) gives an
-    absolute cosine |cos| of 0 between images with orthogonal eigenvectors and 1 with
-    the same one, and the fraction of images where V4's leading eigenvalue is larger.
-    """
-    # three images and two noise levels: orthogonal leading eigenvectors at the first
-    # level, the same one at the second; V4's leading eigenvalue larger at the first
-    basis = torch.eye(4)
-    results = {}
-    for area, values in (("V1", [1.0, 1.0]), ("V4", [2.0, 0.5])):
-        results[area] = {
-            name: SimpleNamespace(
-                log_tau=torch.tensor([0.0, 1.0]),
-                eigenvalues=torch.tensor(values).view(2, 1),
-                eigenvectors=torch.stack([basis[index], basis[3]]).view(2, 1, 4),
-            )
-            for index, name in enumerate(("a", "b", "c"))
-        }
-    summary = compute_summary(results, ["V1", "V4"])
-
-    # |cos| 0 between two different images at the first level, 1 at the second
-    torch.testing.assert_close(summary["similarity_V1"], torch.tensor([0.0, 1.0]))
-
-    # V4 larger in every image at the first level, in none at the second
-    torch.testing.assert_close(summary["second_larger"], torch.tensor([1.0, 0.0]))
-    torch.testing.assert_close(summary["median_V4"], torch.tensor([2.0, 0.5]))
 
 
 def test_compute_gaussian_env_on_known_variances():
@@ -108,3 +78,24 @@ def test_compute_information_on_known_curves():
     # standard deviation of the two, 3 / √2, over √2)
     assert abs(mean - 3.0) < 1e-12
     assert abs(sem - 1.5) < 1e-12
+
+
+def test_compute_normalized_on_known_values():
+    """
+    Verify that `compute_normalized` (`figures/per_scale.py`, notebooks 7, 8 and 10)
+    divides the values by the largest value of the reference: a curve by its own
+    maximum, and eigenvalues by the largest leading eigenvalue, so that the second ones
+    keep their size relative to it.
+    """
+    import numpy as np
+
+    from figures.per_scale import compute_normalized
+
+    # a curve over its own maximum: its peak becomes 1, a negative value stays negative
+    curve = np.array([-0.5, 1.0, 4.0, 2.0])
+    np.testing.assert_allclose(compute_normalized(curve, curve), [-0.125, 0.25, 1, 0.5])
+
+    # eigenvalues [levels, k] over the largest leading eigenvalue (first column)
+    values = np.array([[2.0, 1.0], [8.0, 4.0], [4.0, 0.5]])
+    expected = np.array([[0.25, 0.125], [1.0, 0.5], [0.5, 0.0625]])
+    np.testing.assert_allclose(compute_normalized(values, values[:, 0]), expected)
