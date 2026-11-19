@@ -340,6 +340,28 @@ def per_scale_inputs(path: Path | None = None) -> tuple[dict, dict]:
     return examples, results
 
 
+def fixture_outlines() -> dict:
+    """
+    The regions of the image covered by the inception V1 and V4 neurons
+    (`figures.per_scale.compute_rf_outline`), from the readouts stored in the fixture of
+    Fig. 3: what notebooks 7 and 8 draw on their tiles.
+    """
+    import numpy as np
+    import torch
+
+    from figures.per_scale import compute_rf_outline
+
+    # the receptive-field parameters of each area's readout, as in a state dict
+    data = np.load(FIXTURES / "fig3_def_data.npz")
+    keys = ("mu", "sigma", "grid_x")
+    return {
+        area: compute_rf_outline(
+            {f"readout.{k}": torch.from_numpy(data[f"{area}_{k}"]) for k in keys}
+        )
+        for area in AREAS
+    }
+
+
 def render_per_scale_plot(
     examples: dict, results: dict, out_png: Path, figure_dir: Path
 ) -> dict:
@@ -358,7 +380,7 @@ def render_per_scale_plot(
     # the names of the setup cell that the plot cell uses, and the settings of the plot
     plt.close("all")
     namespace = {"plt": plt, "Path": Path, "plot_per_scale": plot_per_scale}
-    namespace.update(examples=examples, results=results)
+    namespace.update(examples=examples, results=results, outlines=fixture_outlines())
     namespace["PARAMS"] = {
         "encoder": "inception",
         "areas": list(AREAS),
@@ -441,6 +463,7 @@ def render_stimulus_plot(
     plt.close("all")
     namespace = {"plt": plt, "Path": Path, "plot_per_scale": plot_per_scale}
     namespace.update(examples=examples, env=env, results=results)
+    namespace["outlines"] = fixture_outlines()
     namespace["PARAMS"] = {
         "encoder": "inception",
         "areas": list(AREAS),

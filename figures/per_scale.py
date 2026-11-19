@@ -7,6 +7,7 @@ eigenvectors, and the envelope and coding spectra.
     compute_per_scale   M_t(x), the integrand of G(x), at each level (notebooks 7, 8)
     compute_env         M_t^env(x), the stimulus features, at each level (notebook 8)
     align_signs         the signs of the eigenvectors, for display
+    compute_rf_outline  the region of the image an area's neurons cover
     compute_normalized  curves over the largest value of a reference, to compare shapes
     plot_per_scale      the figure of one image: each block's eigenvectors per level
     load_test_images    the test images of notebook 4 (notebook 9)
@@ -34,9 +35,10 @@ from PIL import Image
 import multigeom
 from multigeom.analysis import subspace_alignment
 from multigeom.datasets import CANONICAL_TRANSFORM, TinyImageNetDataset
+from multigeom.encoders.receptive_field import readout_receptive_field
 from multigeom.utils import make_generator
 
-from .style import AREA_COLORS, panel_label, plt, show_eigenvector
+from .style import AREA_COLORS, RF_COLORS, panel_label, plt, show_eigenvector
 
 # the colour of each block of eigenvectors: the areas, and the stimulus features
 BLOCK_COLORS = {**AREA_COLORS, "stimulus": "#4D4D4D"}
@@ -154,6 +156,20 @@ def align_signs(eigvecs: torch.Tensor) -> torch.Tensor:
     return aligned
 
 
+def compute_rf_outline(state: dict) -> tuple[np.ndarray, np.ndarray]:
+    """
+    The region of the image that the neurons of an area cover, as in Fig. 3D of the
+    paper: from the state dict of its encoder, the largest of the neurons' normalised
+    Gaussian readouts at each point of the image [R, R], and the pixel coordinates of
+    those points [R]. Its contour at 0.5 outlines the region.
+    """
+    # the readout's parameters on the CPU (the encoder may be on a GPU)
+    readout = {
+        k: v.detach().cpu() for k, v in state.items() if k.startswith("readout.")
+    }
+    return readout_receptive_field(readout)
+
+
 def compute_normalized(values: np.ndarray, reference: np.ndarray) -> np.ndarray:
     """
     `values` divided by the largest value of `reference`: a curve over its own maximum,
@@ -186,18 +202,27 @@ def get_plot_data(image: torch.Tensor, records: dict) -> dict:
 
 
 def draw_block(
-    fig: plt.Figure, grid: GridSpec, top: int, data: dict, name: str, header: bool
+    fig: plt.Figure,
+    grid: GridSpec,
+    top: int,
+    data: dict,
+    name: str,
+    header: bool,
+    outlines: dict,
 ) -> plt.Axes:
     """
     The eigenvectors of one block, from row `top` of `grid` (the tiles start at its
     fourth column): one row per eigenvector, one column per noise level, with the
-    noise levels above the columns if `header`. Returns the top-left tile.
+    noise levels above the columns if `header`, and on every tile the outline of the
+    region covered by each area of `outlines` (area → `compute_rf_outline`). Returns
+    the top-left tile.
     """
     # the eigenvectors [J, k, P] of the block: J noise levels, k eigenvectors each
     eigvecs = data[name]["eigenvectors"]
     n_levels, n_eigvecs = eigvecs.shape[:2]
 
     # one tile per eigenvector (row) and noise level (column), each eigenvector drawn
+    # with the outlines of the covered regions on top
     tiles = [
         [fig.add_subplot(grid[top + row, 3 + level]) for level in range(n_levels)]
         for row in range(n_eigvecs)
@@ -205,6 +230,7 @@ def draw_block(
     for row in range(n_eigvecs):
         for level in range(n_levels):
             show_eigenvector(tiles[row][level], eigvecs[level, row])
+            draw_outlines(tiles[row][level], outlines)
 
     # the names of the rows (v1, v2, ...) in the first column
     for row in range(n_eigvecs):
@@ -231,6 +257,22 @@ def draw_block(
         va="center",
     )
     return tiles[0][0]
+
+
+def draw_outlines(ax: plt.Axes, outlines: dict) -> None:
+    """
+    The outline of the region covered by each area of `outlines` on a tile drawn by
+    `show_eigenvector` (pixel k centred at k), in the colours of Fig. 3D.
+    """
+    for area, (field, coords) in outlines.items():
+        ax.contour(
+            coords - 0.5,
+            coords - 0.5,
+            field,
+            levels=[0.5],
+            colors=[RF_COLORS[area]],
+            linewidths=0.8,
+        )
 
 
 def draw_eigenvalues(
@@ -275,7 +317,12 @@ def draw_eigenvalues(
 
 
 def plot_per_scale(
-    image: torch.Tensor, records: dict, params: dict, title: str, suptitle: str
+    image: torch.Tensor,
+    records: dict,
+    params: dict,
+    title: str,
+    suptitle: str,
+    outlines: dict,
 ) -> tuple[plt.Figure, dict]:
     """
     The figure of one image: the image (A); for each block of `records` (an area, or
@@ -283,7 +330,10 @@ def plot_per_scale(
     each noise level, one row per eigenvector and one column per level (B, C, ...); then
     the eigenvalues against tau = log t, on linear axes: those of the stimulus features
     in their own panel, if there are any, and those of the areas, each over its largest
-    leading eigenvalue, in the last panel. Returns the figure and the data it shows.
+    leading eigenvalue, in the last panel. On the tiles of an area, the outline of the
+    region its neurons cover (`outlines`: area → `compute_rf_outline`); on those of the
+    stimulus features, the outlines of every area. Returns the figure and the data it
+    shows.
     """
     # the data drawn, its blocks, and the numbers of noise levels and eigenvectors
     data = get_plot_data(image, records)
@@ -315,17 +365,21 @@ def plot_per_scale(
         wspace=0.06,
     )
 
-    # A: the image
+    # A: the image, with the regions the neurons of every area cover
     ax_image = fig.add_subplot(grid[0:2, 0:2])
     ax_image.imshow(data["image"], cmap="gray", vmin=-1, vmax=1)
     ax_image.set_title(title, fontsize=10)
     ax_image.axis("off")
+    draw_outlines(ax_image, outlines)
 
-    # B, C, ...: the eigenvectors of each block, the first with the noise levels above
-    first_tiles = [
-        draw_block(fig, grid, block * (n_eigvecs + 1), data, name, header=block == 0)
-        for block, name in enumerate(names)
-    ]
+    # B, C, ...: the eigenvectors of each block, the first with the noise levels above,
+    # with the outline of the area of the block, or of every area for the stimulus
+    first_tiles = []
+    for block, name in enumerate(names):
+        shown = outlines if name == "stimulus" else {name: outlines[name]}
+        top = block * (n_eigvecs + 1)
+        tile = draw_block(fig, grid, top, data, name, block == 0, shown)
+        first_tiles.append(tile)
 
     # the panels of eigenvalues, in the columns of the tiles
     value_axes = []
