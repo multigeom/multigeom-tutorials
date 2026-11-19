@@ -99,3 +99,33 @@ def test_compute_normalized_on_known_values():
     values = np.array([[2.0, 1.0], [8.0, 4.0], [4.0, 0.5]])
     expected = np.array([[0.25, 0.125], [1.0, 0.5], [0.5, 0.0625]])
     np.testing.assert_allclose(compute_normalized(values, values[:, 0]), expected)
+
+
+def test_compute_bootstrap_resamples_the_same_images_for_every_area():
+    """
+    Verify that `compute_bootstrap` (`figures/per_scale.py`, notebook 10) draws the same
+    images for every area in each resample (two areas with the same curves get the same
+    resampled means), that curves equal for every image give a band of zero width, and
+    that `compute_band` gives the 2.5th and 97.5th percentiles of the resamples.
+    """
+    import numpy as np
+
+    from figures.per_scale import compute_band, compute_bootstrap
+
+    # random curves of 50 images at 4 points, given to two areas, and a constant one
+    rng = np.random.default_rng(0)
+    curves = rng.normal(size=(50, 4))
+    constant = np.tile([1.0, 2.0, 4.0, 2.0], (50, 1))
+    out = compute_bootstrap({"a": curves, "b": curves, "c": constant}, 300, seed=1)
+
+    # paired: the same resamples for areas a and b
+    np.testing.assert_array_equal(out["a"]["mean"], out["b"]["mean"])
+    assert out["a"]["mean"].shape == (300, 4)
+
+    # a curve that does not vary across the images: every resample is that curve
+    band = compute_band(out["c"]["normalized"])
+    np.testing.assert_allclose(band, [[0.25, 0.5, 1, 0.5]] * 2)
+
+    # the band of the resamples, against numpy's percentiles
+    expected = np.percentile(out["a"]["mean"], [2.5, 97.5], axis=0)
+    np.testing.assert_allclose(compute_band(out["a"]["mean"]), expected)

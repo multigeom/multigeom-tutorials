@@ -14,6 +14,8 @@ eigenvectors, and the envelope and coding spectra.
     compute_gaussian_env      the envelope spectrum of a Gaussian prior (notebook 9)
     plot_env_spectrum
     compute_information       ½ ∫ ρ dτ per image: its mean and standard error
+    compute_bootstrap         paired bootstrap of the mean curves of the areas
+    compute_band              the 95% band of bootstrapped curves
     plot_coding_spectrum
 
 The functions of the package are looked up when they are called (`multigeom.<name>`), so
@@ -452,17 +454,54 @@ def compute_information(
     return float(integrals.mean()), float(integrals.std() / len(integrals) ** 0.5)
 
 
-def plot_coding_spectrum(spectra: dict, params: dict) -> tuple[plt.Figure, dict]:
+def compute_bootstrap(curves: dict, n_bootstrap: int, seed: int) -> dict:
+    """
+    Paired bootstrap of the mean curves of the areas. `curves` maps each area to its
+    curves per image [n, J], the same images in the same order; each of the
+    `n_bootstrap` resamples draws n images with replacement, the same ones for every
+    area, so that the areas can be compared resample by resample. Returns, per area,
+    the resampled mean curves [n_bootstrap, J] and the same over their own maximum.
+    """
+    # how many times each image is drawn in each resample [n_bootstrap, n]
+    n_images = len(next(iter(curves.values())))
+    rng = np.random.default_rng(seed)
+    draws = rng.integers(0, n_images, size=(n_bootstrap, n_images))
+    counts = np.zeros((n_bootstrap, n_images))
+    np.add.at(counts, (np.arange(n_bootstrap)[:, None], draws), 1)
+
+    # the mean curve of each resample, raw and over its own maximum, for every area
+    bootstrap = {}
+    for area, values in curves.items():
+        means = counts @ values / n_images
+        bootstrap[area] = {
+            "mean": means,
+            "normalized": means / means.max(axis=1, keepdims=True),
+        }
+    return bootstrap
+
+
+def compute_band(samples: np.ndarray) -> np.ndarray:
+    """
+    The 95% band of bootstrapped curves [n_bootstrap, J]: their 2.5th and 97.5th
+    percentiles at each point [2, J].
+    """
+    return np.percentile(samples, [2.5, 97.5], axis=0)
+
+
+def plot_coding_spectrum(
+    spectra: dict, bootstrap: dict, params: dict
+) -> tuple[plt.Figure, dict]:
     """
     The coding spectrum ρ(τ) of each area of `spectra` (area → CodingSpectrumOutput)
-    against tau = log t, on linear axes. A: on the same axes as the envelope spectrum
-    ρ^env(τ) of the first area's model, fitted to ρ (ρ^env, hundreds of times larger
-    at fine noise scales, is above the axes there); the legend gives ½ ∫ ρ dτ of each
-    area. B: each ρ over its own maximum, to compare where along tau each area sits.
-    Returns the figure and the data it shows.
+    against tau = log t, on linear axes, each with the 95% band of its paired
+    bootstrap over the images (`bootstrap`, from `compute_bootstrap`). A: on the same
+    axes as the envelope spectrum ρ^env(τ) of the first area's model, fitted to ρ
+    (ρ^env, hundreds of times larger at fine noise scales, is above the axes there);
+    the legend gives ½ ∫ ρ dτ of each area. B: each ρ over its own maximum, to compare
+    where along tau each area sits. Returns the figure and the data it shows.
     """
     # the data drawn: the noise scales, the envelope, and per area ρ, ρ over its
-    # maximum and ½ ∫ ρ dτ
+    # maximum, their 95% bands, and ½ ∫ ρ dτ
     areas = list(spectra)
     log_t = spectra[areas[0]].log_tau.double()
     data = {"log_t": log_t.numpy()}
@@ -472,7 +511,9 @@ def plot_coding_spectrum(spectra: dict, params: dict) -> tuple[plt.Figure, dict]
         rho = record.rho.double().numpy()
         data[area] = {
             "rho": rho,
+            "rho_band": compute_band(bootstrap[area]["mean"]),
             "normalized": compute_normalized(rho, rho),
+            "normalized_band": compute_band(bootstrap[area]["normalized"]),
             "information": compute_information(record.env - record.coded, log_t)[0],
         }
 
@@ -481,7 +522,7 @@ def plot_coding_spectrum(spectra: dict, params: dict) -> tuple[plt.Figure, dict]
         1, 2, figsize=(12, 4.4), dpi=params["screen_dpi"]
     )
 
-    # A: the envelope, then ρ of each area, and the line ρ = 0
+    # A: the envelope, then ρ of each area with its band, and the line ρ = 0
     ax_rho.plot(
         data["log_t"],
         data["env"],
@@ -490,6 +531,7 @@ def plot_coding_spectrum(spectra: dict, params: dict) -> tuple[plt.Figure, dict]
         label=r"$\rho^{\rm env}(\tau)$ (above the axes at fine scales)",
     )
     for area in areas:
+        draw_band(ax_rho, data["log_t"], data[area]["rho_band"], AREA_COLORS[area])
         ax_rho.plot(
             data["log_t"],
             data[area]["rho"],
@@ -503,15 +545,17 @@ def plot_coding_spectrum(spectra: dict, params: dict) -> tuple[plt.Figure, dict]
     ax_rho.axhline(0.0, color=LIMIT_COLOR, lw=0.8)
 
     # A: a linear axis fitted to ρ, with room for the legend above the curves
-    lowest = min(data[area]["rho"].min() for area in areas)
-    highest = max(data[area]["rho"].max() for area in areas)
-    ax_rho.set_ylim(min(lowest, 0.0) - 0.05 * highest, 1.4 * highest)
+    lowest = min(data[area]["rho_band"].min() for area in areas)
+    highest = max(data[area]["rho_band"].max() for area in areas)
+    ax_rho.set_ylim(min(lowest, 0.0) - 0.05 * highest, 1.35 * highest)
     ax_rho.set_xlabel(r"$\tau = \log t$")
     ax_rho.set_ylabel(r"$\rho(\tau)$ and $\rho^{\rm env}(\tau)$")
     ax_rho.legend(fontsize=8, frameon=False, loc="upper left")
 
-    # B: each ρ over its own maximum, and the line ρ = 0
+    # B: each ρ over its own maximum, with its band, and the line ρ = 0
     for area in areas:
+        band = data[area]["normalized_band"]
+        draw_band(ax_shape, data["log_t"], band, AREA_COLORS[area])
         ax_shape.plot(
             data["log_t"],
             data[area]["normalized"],
@@ -531,9 +575,14 @@ def plot_coding_spectrum(spectra: dict, params: dict) -> tuple[plt.Figure, dict]
         panel_label(fig, ax, letter)
     fig.suptitle(
         f"Coding spectrum of the {len(spectra[areas[0]].env)} test images"
-        f" ({params['encoder']} models, {params['n_noise']} noisy versions and"
-        " responses per image and noise scale)",
+        f" ({params['encoder']} models),\n{params['n_noise']} noisy versions and"
+        " responses per image and noise scale; bands: 95% paired bootstrap",
         fontsize=11,
         y=1.03,
     )
     return fig, data
+
+
+def draw_band(ax: plt.Axes, x: np.ndarray, band: np.ndarray, color: str) -> None:
+    """A shaded band between the two rows of `band` [2, len(x)], behind the curves."""
+    ax.fill_between(x, band[0], band[1], color=color, alpha=0.25, lw=0)

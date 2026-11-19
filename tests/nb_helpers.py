@@ -557,7 +557,7 @@ CODING_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "coding_spectru
 # functions are in figures/per_scale.py.
 SETUP10 = '"areas": ["V1", "V4"],'
 SPECTRUM10 = "spectra[area] = compute_coding_spectrum("
-PLOT10 = "plot_coding_spectrum(spectra, PARAMS)"
+PLOT10 = "plot_coding_spectrum(spectra, bootstrap, PARAMS)"
 
 # the per-image terms of a coding spectrum, as multigeom.CodingSpectrumOutput holds them
 CODING_TERMS = ("env", "coded", "gain", "sampled")
@@ -613,13 +613,20 @@ def render_coding_plot(spectra: dict, out_png: Path, figure_dir: Path) -> dict:
     import matplotlib.pyplot as plt
     import torch
 
-    from figures.per_scale import compute_information, plot_coding_spectrum
+    from figures.per_scale import (
+        compute_band,
+        compute_bootstrap,
+        compute_information,
+        plot_coding_spectrum,
+    )
 
     # the names of the setup cell that the plot cell uses, and the settings of the plot
     plt.close("all")
     namespace = {
         "Path": Path,
         "torch": torch,
+        "compute_band": compute_band,
+        "compute_bootstrap": compute_bootstrap,
         "compute_information": compute_information,
         "plot_coding_spectrum": plot_coding_spectrum,
         "spectra": spectra,
@@ -627,6 +634,8 @@ def render_coding_plot(spectra: dict, out_png: Path, figure_dir: Path) -> dict:
     namespace["PARAMS"] = {
         "encoder": "inception",
         "n_noise": 8,
+        "n_bootstrap": 2000,
+        "bootstrap_seed": 0,
         "figure_dir": str(figure_dir),
         "file_dpi": 100,
         "screen_dpi": 100,

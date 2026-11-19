@@ -193,7 +193,7 @@ need a function newer than the `multigeom` that GitHub Actions installs (the pac
 when testing `develop`) are skipped there until it has it.
 
 <!-- unit-tests:start -->
-15 tests: 15 run on GitHub Actions (6 of them skipped while what they need is missing). Plus 5 of the multigeom package.
+16 tests: 16 run on GitHub Actions (6 of them skipped while what they need is missing). Plus 5 of the multigeom package.
 
 #### Notebooks 0, 1, 2, 3, 4, 7, 8: [eigenpairs](unit_tests/test_eigenpairs.py)
 
@@ -232,6 +232,7 @@ Check the helpers shared by notebooks 7 to 10 (sign alignment, Gaussian bound, i
 | `compute_gaussian_env_on_known_variances` | Verify that `compute_gaussian_env` (`figures/per_scale.py`, notebook 9), the envelope spectrum of a Gaussian prior, gives the sum over the directions of their variance c_i over c_i plus the noise variance t, Σ_i c_i / (c_i + t), on known variances: the number of directions that vary at tiny noise, ½ per unit-variance direction at t = 1, and the total variance over t, tr C / t, at huge noise. | yes |
 | `compute_information_on_known_curves` | Verify that `compute_information` (`figures/per_scale.py`, notebook 10) gives half the area under the curve of each image (trapezoids over log t), the mean over the images and its standard error, on two piecewise-linear curves of known area. | yes |
 | `compute_normalized_on_known_values` | Verify that `compute_normalized` (`figures/per_scale.py`, notebooks 7, 8 and 10) divides the values by the largest value of the reference: a curve by its own maximum, and eigenvalues by the largest leading eigenvalue, so that the second ones keep their size relative to it. | yes |
+| `compute_bootstrap_resamples_the_same_images_for_every_area` | Verify that `compute_bootstrap` (`figures/per_scale.py`, notebook 10) draws the same images for every area in each resample (two areas with the same curves get the same resampled means), that curves equal for every image give a band of zero width, and that `compute_band` gives the 2.5th and 97.5th percentiles of the resamples. | yes |
 
 #### Notebook 8: [env, in the multigeom package](https://github.com/multigeom/multigeom/blob/main/tests/unit/test_env.py)
 
