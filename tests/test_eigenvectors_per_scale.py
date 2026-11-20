@@ -17,15 +17,15 @@ tests/fixtures/make_per_scale_fixtures.py):
 
   - test_*_plot_*
       run on CPU in CI: execute the notebook's own plot cell (with the functions of
-      figures/per_scale.py, on the stored data) and compare the picture with the
+      multigeom.plotting, on the stored data) and compare the picture with the
       reference picture.
   - test_recompute_*
       run the notebook's setup and compute cells on the real checkpoints, for the
       frog, and compare with the stored data. Skipped unless runs/ and the TinyImageNet
       data are present (not the case on GitHub).
 
-The functions of figures/per_scale.py have their unit tests in
-tests/unit_tests/test_per_scale_helpers.py.
+The functions of the package that the notebook uses have their unit tests in the
+package (tests/unit/test_per_scale_analysis.py).
 """
 
 from __future__ import annotations
@@ -46,6 +46,7 @@ import torch  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from nb_helpers import (  # noqa: E402
+    needs_plotting,
     AREAS,
     BAD_PIXEL_FRACTION,
     MEAN_ABS_TOL,
@@ -104,6 +105,7 @@ def test_fixture_is_wellformed():
         np.testing.assert_allclose(norms, 1.0, atol=1e-2)
 
 
+@needs_plotting
 def test_notebook_plot_reproduces_reference(tmp_path):
     """
     Verify that the plot cell of notebook 7 draws the figure of the frog like the
@@ -121,6 +123,7 @@ def test_notebook_plot_reproduces_reference(tmp_path):
     assert (tmp_path / "figures" / "eigenvectors_per_scale_frog.png").exists()
 
 
+@needs_plotting
 def test_plot_comparison_detects_changes(tmp_path):
     """
     Verify that, with the four leading eigenvectors of V1's multiscale Fisher

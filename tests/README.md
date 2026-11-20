@@ -47,7 +47,7 @@ in `fixtures/`. A figure is compared pixel by pixel with its reference picture: 
 cannot pass by accident.
 
 <!-- regression-tests:start -->
-52 tests: 43 run on GitHub Actions, 9 do not.
+52 tests: 43 run on GitHub Actions (8 of them skipped while what they need is missing), 9 do not.
 
 #### Notebooks 1, 2: [getting_started_notebooks](test_getting_started_notebooks.py)
 
@@ -140,9 +140,11 @@ Check that notebook 7 still computes and plots the leading eigenvectors of the m
 | Test | What it checks | GitHub Actions |
 |---|---|---|
 | `fixture_is_wellformed` | Verify that the stored data of notebook 7 (the frog) has 24 increasing noise levels and, for V1 and V4, 4 positive decreasing eigenvalues and unit-norm eigenvectors at each level. | yes |
-| `notebook_plot_reproduces_reference` | Verify that the plot cell of notebook 7 draws the figure of the frog like the reference picture, and saves it. | yes |
-| `plot_comparison_detects_changes` | Verify that, with the four leading eigenvectors of V1's multiscale Fisher information at a single noise level, M_t(x), drawn in reverse order (the 4th in place of the 1st) at every noise level, the figure of the frog differs from the reference picture beyond the tolerance of `test_notebook_plot_reproduces_reference` (mean \|difference\| ≥ 0.001, or ≥ 0.2% of the pixels off by more than 0.1), so that that test cannot pass by accident. | yes |
+| `notebook_plot_reproduces_reference` | Verify that the plot cell of notebook 7 draws the figure of the frog like the reference picture, and saves it. | yes\* |
+| `plot_comparison_detects_changes` | Verify that, with the four leading eigenvectors of V1's multiscale Fisher information at a single noise level, M_t(x), drawn in reverse order (the 4th in place of the 1st) at every noise level, the figure of the frog differs from the reference picture beyond the tolerance of `test_notebook_plot_reproduces_reference` (mean \|difference\| ≥ 0.001, or ≥ 0.2% of the pixels off by more than 0.1), so that that test cannot pass by accident. | yes\* |
 | `recompute_matches_fixture` | Verify that notebook 7 recomputed from the checkpoints gives the stored noise levels, and at the coarse levels (log noise variance τ ≥ 3) the stored leading eigenvector (absolute cosine \|cos\| > 0.9) and leading eigenvalue (within 30%). | no (slow) |
+
+\* Skipped while it needs a multigeom with multigeom.plotting.
 
 #### Notebook 8: [stimulus_features_per_scale](test_stimulus_features_per_scale.py)
 
@@ -151,9 +153,11 @@ Check that notebook 8 still computes and plots the stimulus features at a single
 | Test | What it checks | GitHub Actions |
 |---|---|---|
 | `fixture_is_wellformed` | Verify that the stored stimulus features of notebook 8 (the frog) have the noise levels of notebook 7's fixture and 4 positive decreasing eigenvalues and unit-norm eigenvectors at each level. | yes |
-| `notebook_plot_reproduces_reference` | Verify that the plot cell of notebook 8 draws the figure of the frog (stimulus features, then V1 and V4 from notebook 7's fixture) like the reference picture, and saves it. | yes |
-| `plot_comparison_detects_changes` | Verify that, with the four leading eigenvectors of the stimulus features at a single noise level (what stays uncertain about the image given its noisy version), M_t^env(x), drawn in reverse order (the 4th in place of the 1st) at every noise level, the figure of the frog differs from the reference picture beyond the tolerance of `test_notebook_plot_reproduces_reference` (mean \|difference\| ≥ 0.001, or ≥ 0.2% of the pixels off by more than 0.1), so that that test cannot pass by accident. | yes |
+| `notebook_plot_reproduces_reference` | Verify that the plot cell of notebook 8 draws the figure of the frog (stimulus features, then V1 and V4 from notebook 7's fixture) like the reference picture, and saves it. | yes\* |
+| `plot_comparison_detects_changes` | Verify that, with the four leading eigenvectors of the stimulus features at a single noise level (what stays uncertain about the image given its noisy version), M_t^env(x), drawn in reverse order (the 4th in place of the 1st) at every noise level, the figure of the frog differs from the reference picture beyond the tolerance of `test_notebook_plot_reproduces_reference` (mean \|difference\| ≥ 0.001, or ≥ 0.2% of the pixels off by more than 0.1), so that that test cannot pass by accident. | yes\* |
 | `recompute_matches_fixture` | Verify that the stimulus features of the frog recomputed from the V1 checkpoint have the stored settings and noise levels, and at the coarse levels (log noise variance τ ≥ 3) the stored leading eigenvector (absolute cosine \|cos\| > 0.9) and leading eigenvalue (within 30%). | no (slow) |
+
+\* Skipped while it needs a multigeom with multigeom.plotting.
 
 #### Notebook 9: [envelope_spectrum](test_envelope_spectrum.py)
 
@@ -162,9 +166,11 @@ Check that notebook 9 still computes and plots the envelope spectrum, the error 
 | Test | What it checks | GitHub Actions |
 |---|---|---|
 | `fixture_is_wellformed` | Verify that the stored envelope spectrum of notebook 9 has 31 increasing noise levels, a positive curve for each of the 200 test images and both models, the variances of the training images largest first, and a Gaussian bound that decreases from below the number of pixels P. | yes |
-| `notebook_plot_reproduces_reference` | Verify that the plot cell of notebook 9 draws the envelope spectrum like the reference picture, and saves it. | yes |
-| `plot_comparison_detects_changes` | Verify that, with the V1 model's envelope spectrum (the denoising error without the responses at each noise level), ρ^env(τ), multiplied by 1.5 at every noise level, the envelope spectrum figure differs from the reference picture beyond the tolerance of `test_notebook_plot_reproduces_reference` (mean \|difference\| ≥ 0.001, or ≥ 0.2% of the pixels off by more than 0.1), so that that test cannot pass by accident. | yes |
+| `notebook_plot_reproduces_reference` | Verify that the plot cell of notebook 9 draws the envelope spectrum like the reference picture, and saves it. | yes\* |
+| `plot_comparison_detects_changes` | Verify that, with the V1 model's envelope spectrum (the denoising error without the responses at each noise level), ρ^env(τ), multiplied by 1.5 at every noise level, the envelope spectrum figure differs from the reference picture beyond the tolerance of `test_notebook_plot_reproduces_reference` (mean \|difference\| ≥ 0.001, or ≥ 0.2% of the pixels off by more than 0.1), so that that test cannot pass by accident. | yes\* |
 | `recompute_matches_fixture` | Verify that the spectrum recomputed from the V1 and V4 checkpoints has the stored noise levels and mean curves (within 2%), and the training images give the stored variances and Gaussian bound. | no (slow) |
+
+\* Skipped while it needs a multigeom with multigeom.plotting.
 
 #### Notebook 10: [coding_spectrum](test_coding_spectrum.py)
 
@@ -173,9 +179,11 @@ Check that notebook 10 still computes and plots the coding spectrum, what the re
 | Test | What it checks | GitHub Actions |
 |---|---|---|
 | `fixture_is_wellformed` | Verify that the stored coding spectrum of notebook 10 has 31 increasing noise levels and, for V1 and V4 and each of the 200 test images, the four terms of the curve at each level (positive errors without and with the responses, non-negative changes made by the responses). | yes |
-| `notebook_plot_reproduces_reference` | Verify that the plot cell of notebook 10 draws the coding spectrum like the reference picture, and saves it. | yes |
-| `plot_comparison_detects_changes` | Verify that, with V4's coding spectrum (what the responses take off the denoising error at each noise level), ρ(τ), doubled at every noise level (its error with the responses moved twice as far from the error without them), the coding spectrum figure differs from the reference picture beyond the tolerance of `test_notebook_plot_reproduces_reference` (mean \|difference\| ≥ 0.001, or ≥ 0.2% of the pixels off by more than 0.1), so that that test cannot pass by accident. | yes |
+| `notebook_plot_reproduces_reference` | Verify that the plot cell of notebook 10 draws the coding spectrum like the reference picture, and saves it. | yes\* |
+| `plot_comparison_detects_changes` | Verify that, with V4's coding spectrum (what the responses take off the denoising error at each noise level), ρ(τ), doubled at every noise level (its error with the responses moved twice as far from the error without them), the coding spectrum figure differs from the reference picture beyond the tolerance of `test_notebook_plot_reproduces_reference` (mean \|difference\| ≥ 0.001, or ≥ 0.2% of the pixels off by more than 0.1), so that that test cannot pass by accident. | yes\* |
 | `recompute_matches_fixture` | Verify that the coding spectrum recomputed from the V1 and V4 checkpoints (about 7 min on a GPU) has the stored noise levels, the stored mean errors without and with the responses (within 2%) and the mutual information between the responses and the image, ½∫ρ dτ (within 1 nat). | no (slow) |
+
+\* Skipped while it needs a multigeom with multigeom.plotting.
 
 #### [figures](test_figures.py)
 
@@ -193,7 +201,7 @@ need a function newer than the `multigeom` that GitHub Actions installs (the pac
 when testing `develop`) are skipped there until it has it.
 
 <!-- unit-tests:start -->
-17 tests: 17 run on GitHub Actions (6 of them skipped while what they need is missing). Plus 5 of the multigeom package.
+11 tests: 11 run on GitHub Actions (6 of them skipped while what they need is missing). Plus 11 of the multigeom package.
 
 #### Notebooks 0, 1, 2, 3, 4, 7, 8: [eigenpairs](unit_tests/test_eigenpairs.py)
 
@@ -222,18 +230,18 @@ Check that the estimator of the multiscale Fisher information G(x) at a single n
 
 \* Skipped while it needs a multigeom with compute_g_per_scale.
 
-#### Notebooks 7, 8, 9, 10, 11: [per_scale_helpers](unit_tests/test_per_scale_helpers.py)
+#### Notebooks 7, 8, 9, 10, 11: [per_scale_analysis, in the multigeom package](https://github.com/multigeom/multigeom/blob/main/tests/unit/test_per_scale_analysis.py)
 
-Check the helpers shared by notebooks 7 to 11 (sign alignment, Gaussian bound, integration) on inputs whose answer is known.
+Check the analyses of the estimates at each noise scale (sign alignment, normalised curves, information, paired bootstrap), the Gaussian bound of the envelope spectrum and the Fisher information per neuron on inputs whose answer is known.
 
 | Test | What it checks | GitHub Actions |
 |---|---|---|
-| `align_signs_flips_only_signs_to_agree_with_coarser_levels` | Verify that `align_signs` (`figures/per_scale.py`, notebooks 7 and 8) only flips signs, makes each eigenvector agree with the same one at the next coarser level, and gives the coarsest a positive sum. | yes |
-| `compute_gaussian_env_on_known_variances` | Verify that `compute_gaussian_env` (`figures/per_scale.py`, notebook 9), the envelope spectrum of a Gaussian prior, gives the sum over the directions of their variance c_i over c_i plus the noise variance t, Σ_i c_i / (c_i + t), on known variances: the number of directions that vary at tiny noise, ½ per unit-variance direction at t = 1, and the total variance over t, tr C / t, at huge noise. | yes |
-| `compute_information_on_known_curves` | Verify that `compute_information` (`figures/per_scale.py`, notebook 10) gives half the area under the curve of each image (trapezoids over log t), the mean over the images and its standard error, on two piecewise-linear curves of known area. | yes |
-| `compute_normalized_on_known_values` | Verify that `compute_normalized` (`figures/per_scale.py`, notebooks 7, 8 and 10) divides the values by the largest value of the reference: a curve by its own maximum, and eigenvalues by the largest leading eigenvalue, so that the second ones keep their size relative to it. | yes |
-| `compute_bootstrap_resamples_the_same_images_for_every_area` | Verify that `compute_bootstrap` (`figures/per_scale.py`, notebook 10) draws the same images for every area in each resample (two areas with the same curves get the same resampled means), that curves equal for every image give a band of zero width, and that `compute_band` gives the 2.5th and 97.5th percentiles of the resamples. | yes |
-| `compute_fisher_per_cell_on_a_linear_encoder` | Verify that `compute_fisher_per_cell` (`figures/per_scale.py`, notebook 11) gives, for an encoder whose responses are a known linear map A of the image, each neuron's pattern A_n / σ and Fisher information ‖A_n‖² / σ², and that their total J(x) has the eigenvalues of AᵀA / σ², whose sum is that of the neurons'. | yes |
+| `align_signs_flips_only_signs_to_agree_with_coarser_levels` | Verify that `align_signs` (`multigeom.analysis`) only flips signs, makes each eigenvector agree with the same one at the next coarser level, and gives the coarsest a positive sum. | in the package's checks (from its next release) |
+| `compute_gaussian_env_on_known_variances` | Verify that `compute_gaussian_env` (`multigeom.geometry`), the envelope spectrum of a Gaussian prior, gives the sum over the directions of their variance c_i over c_i plus the noise variance t, Σ_i c_i / (c_i + t), on known variances: the number of directions that vary at tiny noise, ½ per unit-variance direction at t = 1, and the total variance over t, tr C / t, at huge noise. | in the package's checks (from its next release) |
+| `compute_information_on_known_curves` | Verify that `compute_information` (`multigeom.analysis`) gives half the area under the curve of each image (trapezoids over log t), the mean over the images and its standard error, on two piecewise-linear curves of known area. | in the package's checks (from its next release) |
+| `compute_normalized_on_known_values` | Verify that `compute_normalized` (`multigeom.analysis`) divides the values by the largest value of the reference: a curve by its own maximum, and eigenvalues by the largest leading eigenvalue, so that the second ones keep their size relative to it. | in the package's checks (from its next release) |
+| `compute_bootstrap_resamples_the_same_images_for_every_area` | Verify that `compute_bootstrap` (`multigeom.analysis`) draws the same images for every area in each resample (two areas with the same curves get the same resampled means), that curves equal for every image give a band of zero width, and that `compute_band` gives the 2.5th and 97.5th percentiles of the resamples. | in the package's checks (from its next release) |
+| `compute_fisher_per_cell_on_a_linear_encoder` | Verify that `compute_fisher_per_cell` (`multigeom.geometry`) gives, for an encoder whose responses are a known linear map A of the image, each neuron's pattern A_n / σ and Fisher information ‖A_n‖² / σ², and that their total J(x) has the eigenvalues of AᵀA / σ², whose sum is that of the neurons'. | in the package's checks (from its next release) |
 
 #### Notebook 8: [env, in the multigeom package](https://github.com/multigeom/multigeom/blob/main/tests/unit/test_env.py)
 

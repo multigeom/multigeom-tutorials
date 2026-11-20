@@ -19,7 +19,7 @@ tests/fixtures/make_stimulus_features_fixtures.py):
 
   - test_*_plot_*
       run on CPU in CI: execute the notebook's own plot cell (with the functions of
-      figures/per_scale.py, on the stored data) and compare the picture with the
+      multigeom.plotting, on the stored data) and compare the picture with the
       reference picture.
   - test_recompute_*
       run the notebook's setup and stimulus-features cells on the real checkpoints, for
@@ -45,6 +45,7 @@ import torch  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from nb_helpers import (  # noqa: E402
+    needs_plotting,
     BAD_PIXEL_FRACTION,
     FROG_IMAGE,
     MEAN_ABS_TOL,
@@ -97,6 +98,7 @@ def test_fixture_is_wellformed():
     np.testing.assert_allclose(norms, 1.0, atol=1e-2)
 
 
+@needs_plotting
 def test_notebook_plot_reproduces_reference(tmp_path):
     """
     Verify that the plot cell of notebook 8 draws the figure of the frog (stimulus
@@ -115,6 +117,7 @@ def test_notebook_plot_reproduces_reference(tmp_path):
     assert saved.exists()
 
 
+@needs_plotting
 def test_plot_comparison_detects_changes(tmp_path):
     """
     Verify that, with the four leading eigenvectors of the stimulus features

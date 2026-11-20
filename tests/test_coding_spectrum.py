@@ -19,7 +19,7 @@ tests/fixtures/make_coding_spectrum_fixtures.py):
 
   - test_*_plot_*
       run on CPU in CI: execute the notebook's own plot cell (with the functions of
-      figures/per_scale.py, on the stored data) and compare the picture with the
+      multigeom.plotting, on the stored data) and compare the picture with the
       reference picture.
   - test_recompute_*
       run the notebook's setup and spectrum cells on the real
@@ -44,8 +44,8 @@ import torch  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from figures.per_scale import compute_information  # noqa: E402
 from nb_helpers import (  # noqa: E402
+    needs_plotting,
     AREAS,
     BAD_PIXEL_FRACTION,
     CODING_FIXTURES,
@@ -104,6 +104,7 @@ def test_fixture_is_wellformed():
         assert bool((record.gain >= 0).all()) and bool((record.sampled >= 0).all())
 
 
+@needs_plotting
 def test_notebook_plot_reproduces_reference(tmp_path):
     """
     Verify that the plot cell of notebook 10 draws the coding spectrum like the
@@ -120,6 +121,7 @@ def test_notebook_plot_reproduces_reference(tmp_path):
     assert (tmp_path / "figures" / "coding_spectrum.png").exists()
 
 
+@needs_plotting
 def test_plot_comparison_detects_changes(tmp_path):
     """
     Verify that, with V4's coding spectrum (what the responses take off the
@@ -156,6 +158,7 @@ def test_recompute_matches_fixture():
     """
     if not have_inputs(["data/tiny-imagenet-200/val"]):
         pytest.skip("needs runs/ checkpoints and TinyImageNet (see README)")
+    from multigeom.analysis import compute_information
 
     # the notebook's cells, from the repository root
     cwd = os.getcwd()

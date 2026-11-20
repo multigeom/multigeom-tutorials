@@ -5,8 +5,11 @@ notebook 5 for Fig. 5, notebook 6 for Fig. 6).
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
+
+import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 NOTEBOOK = REPO / "notebooks" / "3_leading_eigenvectors_of_G.ipynb"
@@ -303,8 +306,15 @@ def have_inputs(data: list[str], areas: tuple = AREAS) -> bool:
 NOTEBOOK7 = REPO / "notebooks" / "7_eigenvectors_of_G_per_scale.ipynb"
 PER_SCALE_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "per_scale"
 
+# the figures of notebooks 7 to 11 are drawn by multigeom.plotting, newer than the
+# multigeom of the main branch: their tests are skipped until the installed one has it
+needs_plotting = pytest.mark.skipif(
+    importlib.util.find_spec("multigeom.plotting") is None,
+    reason="needs a multigeom with multigeom.plotting",
+)
+
 # Lines of the code cells of notebook 7 (setup, compute, plot); its functions are in
-# figures/per_scale.py.
+# the package (multigeom.plotting and others).
 SETUP7 = "PARAMS = {"
 COMPUTE7 = "results[area] = compute_per_scale("
 PLOT7 = "fig, plotted[name] = plot_per_scale("
@@ -343,13 +353,13 @@ def per_scale_inputs(path: Path | None = None) -> tuple[dict, dict]:
 def fixture_outlines() -> dict:
     """
     The regions of the image covered by the inception V1 and V4 neurons
-    (`figures.per_scale.compute_rf_outline`), from the readouts stored in the fixture of
-    Fig. 3: what notebooks 7 and 8 draw on their tiles.
+    (`multigeom.encoders.receptive_field.compute_rf_outline`), from the readouts stored
+    in the fixture of Fig. 3: what notebooks 7 and 8 draw on their tiles.
     """
     import numpy as np
     import torch
 
-    from figures.per_scale import compute_rf_outline
+    from multigeom.encoders.receptive_field import compute_rf_outline
 
     # the receptive-field parameters of each area's readout, as in a state dict
     data = np.load(FIXTURES / "fig3_def_data.npz")
@@ -375,7 +385,7 @@ def render_per_scale_plot(
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    from figures.per_scale import plot_per_scale
+    from multigeom.plotting import plot_per_scale
 
     # the names of the setup cell that the plot cell uses, and the settings of the plot
     plt.close("all")
@@ -414,7 +424,7 @@ NOTEBOOK8 = REPO / "notebooks" / "8_stimulus_features_per_scale.ipynb"
 STIMULUS_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "stimulus_features"
 
 # Lines of the code cells of notebook 8 (setup, stimulus features, plot); its functions
-# are in figures/per_scale.py.
+# are in the package.
 SETUP8 = '"prior_area": "V1",'
 ENV8 = "env = compute_env("
 PLOT8 = 'records = {"stimulus": env[name]}'
@@ -457,7 +467,7 @@ def render_stimulus_plot(
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    from figures.per_scale import plot_per_scale
+    from multigeom.plotting import plot_per_scale
 
     # the names of the setup cell that the plot cell uses, and the settings of the plot
     plt.close("all")
@@ -498,7 +508,7 @@ NOTEBOOK9 = REPO / "notebooks" / "9_envelope_spectrum.ipynb"
 ENVELOPE_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "envelope_spectrum"
 
 # Lines of the code cells of notebook 9 (setup, spectrum, Gaussian bound, plot); its
-# functions are in figures/per_scale.py.
+# functions are in the package.
 SETUP9 = '"prior_areas": ["V1", "V4"],'
 SPECTRUM9 = "spectra[area] = compute_env_spectrum("
 GAUSSIAN9 = "variances = compute_prior_variances("
@@ -542,7 +552,7 @@ def render_envelope_plot(
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    from figures.per_scale import plot_env_spectrum
+    from multigeom.plotting import plot_env_spectrum
 
     # the names of the setup cell that the plot cell uses, and the settings of the plot
     plt.close("all")
@@ -577,7 +587,7 @@ NOTEBOOK10 = REPO / "notebooks" / "10_coding_spectrum.ipynb"
 CODING_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "coding_spectrum"
 
 # Lines of the code cells of notebook 10 (setup, spectrum, plot); its
-# functions are in figures/per_scale.py.
+# functions are in the package.
 SETUP10 = '"areas": ["V1", "V4"],'
 SPECTRUM10 = "spectra[area] = compute_coding_spectrum("
 PLOT10 = "plot_coding_spectrum(spectra, bootstrap, PARAMS)"
@@ -636,12 +646,8 @@ def render_coding_plot(spectra: dict, out_png: Path, figure_dir: Path) -> dict:
     import matplotlib.pyplot as plt
     import torch
 
-    from figures.per_scale import (
-        compute_band,
-        compute_bootstrap,
-        compute_information,
-        plot_coding_spectrum,
-    )
+    from multigeom.analysis import compute_band, compute_bootstrap, compute_information
+    from multigeom.plotting import plot_coding_spectrum
 
     # the names of the setup cell that the plot cell uses, and the settings of the plot
     plt.close("all")

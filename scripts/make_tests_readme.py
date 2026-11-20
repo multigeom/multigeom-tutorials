@@ -42,10 +42,15 @@ SECTIONS = {
 # summary, GitHub Actions) and added to the unit tests table
 PACKAGE = "https://github.com/multigeom/multigeom/blob/main/tests/unit"
 ENV_TESTS = f"{PACKAGE}/test_env.py"
+PER_SCALE_TESTS = f"{PACKAGE}/test_per_scale_analysis.py"
 PACKAGE_SUMMARIES = {
     ENV_TESTS: "Check that the estimator of the stimulus features at a single noise"
     " level, M_t^env(x), gives the known answer for a Gaussian prior and in two exact"
-    " limits."
+    " limits.",
+    PER_SCALE_TESTS: "Check the analyses of the estimates at each noise scale (sign"
+    " alignment, normalised curves, information, paired bootstrap), the Gaussian bound"
+    " of the envelope spectrum and the Fisher information per neuron on inputs whose"
+    " answer is known.",
 }
 NEXT_RELEASE = "in the package's checks (from its next release)"
 PACKAGE_TESTS = [
@@ -97,6 +102,67 @@ PACKAGE_TESTS = [
         "Verify that, with the same denoiser that returns the noisy image unchanged and"
         " many probes, the eigenvalues that the estimator of the stimulus features"
         " returns are all close to 1, as for the identity matrix.",
+        NEXT_RELEASE,
+    ),
+    (
+        PER_SCALE_TESTS,
+        (7, 8, 9, 10, 11),
+        "test_align_signs_flips_only_signs_to_agree_with_coarser_levels",
+        "Verify that `align_signs` (`multigeom.analysis`) only flips signs, makes each"
+        " eigenvector agree with the same one at the next coarser level, and gives the"
+        " coarsest a positive sum.",
+        NEXT_RELEASE,
+    ),
+    (
+        PER_SCALE_TESTS,
+        (7, 8, 9, 10, 11),
+        "test_compute_gaussian_env_on_known_variances",
+        "Verify that `compute_gaussian_env` (`multigeom.geometry`), the envelope"
+        " spectrum of a Gaussian prior, gives the sum over the directions of their"
+        " variance c_i over c_i plus the noise variance t, Σ_i c_i / (c_i + t), on"
+        " known variances: the number of directions that vary at tiny noise, ½ per"
+        " unit-variance direction at t = 1, and the total variance over t, tr C / t, at"
+        " huge noise.",
+        NEXT_RELEASE,
+    ),
+    (
+        PER_SCALE_TESTS,
+        (7, 8, 9, 10, 11),
+        "test_compute_information_on_known_curves",
+        "Verify that `compute_information` (`multigeom.analysis`) gives half the area"
+        " under the curve of each image (trapezoids over log t), the mean over the"
+        " images and its standard error, on two piecewise-linear curves of known area.",
+        NEXT_RELEASE,
+    ),
+    (
+        PER_SCALE_TESTS,
+        (7, 8, 9, 10, 11),
+        "test_compute_normalized_on_known_values",
+        "Verify that `compute_normalized` (`multigeom.analysis`) divides the values by"
+        " the largest value of the reference: a curve by its own maximum, and"
+        " eigenvalues by the largest leading eigenvalue, so that the second ones keep"
+        " their size relative to it.",
+        NEXT_RELEASE,
+    ),
+    (
+        PER_SCALE_TESTS,
+        (7, 8, 9, 10, 11),
+        "test_compute_bootstrap_resamples_the_same_images_for_every_area",
+        "Verify that `compute_bootstrap` (`multigeom.analysis`) draws the same images"
+        " for every area in each resample (two areas with the same curves get the same"
+        " resampled means), that curves equal for every image give a band of zero"
+        " width, and that `compute_band` gives the 2.5th and 97.5th percentiles of the"
+        " resamples.",
+        NEXT_RELEASE,
+    ),
+    (
+        PER_SCALE_TESTS,
+        (7, 8, 9, 10, 11),
+        "test_compute_fisher_per_cell_on_a_linear_encoder",
+        "Verify that `compute_fisher_per_cell` (`multigeom.geometry`) gives, for an"
+        " encoder whose responses are a known linear map A of the image, each neuron's"
+        " pattern A_n / σ and Fisher information ‖A_n‖² / σ², and that their total J(x)"
+        " has the eigenvalues of AᵀA / σ², whose sum is that of the neurons'.",
         NEXT_RELEASE,
     ),
 ]

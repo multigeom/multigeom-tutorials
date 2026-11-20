@@ -18,7 +18,7 @@ tests/fixtures/make_envelope_spectrum_fixtures.py):
 
   - test_*_plot_*
       run on CPU in CI: execute the notebook's own plot cell (with the functions of
-      figures/per_scale.py, on the stored data) and compare the picture with the
+      multigeom.plotting, on the stored data) and compare the picture with the
       reference picture.
   - test_recompute_*
       run the notebook's setup, spectrum and Gaussian-bound cells on the real
@@ -44,6 +44,7 @@ import torch  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from nb_helpers import (  # noqa: E402
+    needs_plotting,
     AREAS,
     BAD_PIXEL_FRACTION,
     ENVELOPE_FIXTURES,
@@ -100,6 +101,7 @@ def test_fixture_is_wellformed():
     assert bool((gaussian[1:] < gaussian[:-1]).all()) and float(gaussian[0]) < P
 
 
+@needs_plotting
 def test_notebook_plot_reproduces_reference(tmp_path):
     """
     Verify that the plot cell of notebook 9 draws the envelope spectrum like the
@@ -116,6 +118,7 @@ def test_notebook_plot_reproduces_reference(tmp_path):
     assert (tmp_path / "figures" / "envelope_spectrum.png").exists()
 
 
+@needs_plotting
 def test_plot_comparison_detects_changes(tmp_path):
     """
     Verify that, with the V1 model's envelope spectrum (the denoising error
