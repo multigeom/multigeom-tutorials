@@ -193,7 +193,7 @@ need a function newer than the `multigeom` that GitHub Actions installs (the pac
 when testing `develop`) are skipped there until it has it.
 
 <!-- unit-tests:start -->
-16 tests: 16 run on GitHub Actions (6 of them skipped while what they need is missing). Plus 5 of the multigeom package.
+17 tests: 17 run on GitHub Actions (6 of them skipped while what they need is missing). Plus 5 of the multigeom package.
 
 #### Notebooks 0, 1, 2, 3, 4, 7, 8: [eigenpairs](unit_tests/test_eigenpairs.py)
 
@@ -222,9 +222,9 @@ Check that the estimator of the multiscale Fisher information G(x) at a single n
 
 \* Skipped while it needs a multigeom with compute_g_per_scale.
 
-#### Notebooks 7, 8, 9, 10: [per_scale_helpers](unit_tests/test_per_scale_helpers.py)
+#### Notebooks 7, 8, 9, 10, 11: [per_scale_helpers](unit_tests/test_per_scale_helpers.py)
 
-Check the helpers shared by notebooks 7 to 10 (sign alignment, Gaussian bound, integration) on inputs whose answer is known.
+Check the helpers shared by notebooks 7 to 11 (sign alignment, Gaussian bound, integration) on inputs whose answer is known.
 
 | Test | What it checks | GitHub Actions |
 |---|---|---|
@@ -233,6 +233,7 @@ Check the helpers shared by notebooks 7 to 10 (sign alignment, Gaussian bound, i
 | `compute_information_on_known_curves` | Verify that `compute_information` (`figures/per_scale.py`, notebook 10) gives half the area under the curve of each image (trapezoids over log t), the mean over the images and its standard error, on two piecewise-linear curves of known area. | yes |
 | `compute_normalized_on_known_values` | Verify that `compute_normalized` (`figures/per_scale.py`, notebooks 7, 8 and 10) divides the values by the largest value of the reference: a curve by its own maximum, and eigenvalues by the largest leading eigenvalue, so that the second ones keep their size relative to it. | yes |
 | `compute_bootstrap_resamples_the_same_images_for_every_area` | Verify that `compute_bootstrap` (`figures/per_scale.py`, notebook 10) draws the same images for every area in each resample (two areas with the same curves get the same resampled means), that curves equal for every image give a band of zero width, and that `compute_band` gives the 2.5th and 97.5th percentiles of the resamples. | yes |
+| `compute_fisher_per_cell_on_a_linear_encoder` | Verify that `compute_fisher_per_cell` (`figures/per_scale.py`, notebook 11) gives, for an encoder whose responses are a known linear map A of the image, each neuron's pattern A_n / σ and Fisher information ‖A_n‖² / σ², and that their total J(x) has the eigenvalues of AᵀA / σ², whose sum is that of the neurons'. | yes |
 
 #### Notebook 8: [env, in the multigeom package](https://github.com/multigeom/multigeom/blob/main/tests/unit/test_env.py)
 

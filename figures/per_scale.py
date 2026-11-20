@@ -8,6 +8,8 @@ eigenvectors, and the envelope and coding spectra.
     compute_env         M_t^env(x), the stimulus features, at each level (notebook 8)
     align_signs         the signs of the eigenvectors, for display
     compute_rf_outline  the region of the image an area's neurons cover
+    save_intermediate, load_intermediate  store and reload computed results
+    compute_fisher_per_cell  the Fisher information of each neuron, and their total
     compute_normalized  curves over the largest value of a reference, to compare shapes
     plot_per_scale      the figure of one image: each block's eigenvectors per level
     load_test_images    the test images of notebook 4 (notebook 9)
@@ -25,6 +27,7 @@ that this module imports with a multigeom that does not have them yet.
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -53,6 +56,10 @@ LIMIT_COLOR = "#BBBBBB"
 # height of each further block and of each further panel of eigenvalues
 EIGVEC_ROW, BLOCK_GAP, VALUES_GAP, VALUES_ROW = 1.0, 0.45, 0.9, 3.2
 FIGURE_WIDTH, TWO_BLOCK_HEIGHT, BLOCK_HEIGHT, VALUES_HEIGHT = 16.5, 8.6, 3.05, 2.8
+
+# the Fisher rows under a block (one row per cell, one for the total), apart by a
+# gap, and the height in inches of one unit of row height
+FISHER_GAP, INCHES_PER_ROW = 0.45, 3.05 / 4.45
 
 # the labels of the panels of eigenvalues: the areas, normalized, and the stimulus
 # features, as they are
@@ -170,6 +177,44 @@ def compute_rf_outline(state: dict) -> tuple[np.ndarray, np.ndarray]:
     return readout_receptive_field(readout)
 
 
+def compute_fisher_per_cell(
+    image: torch.Tensor, encoder: torch.nn.Module, sigma: float, device: torch.device
+) -> dict:
+    """
+    The Fisher information of the responses about one image [1, 1, 64, 64], per neuron
+    and in total. Neuron n's is J_n(x) = g_n g_nᵀ with g_n = ∇f_n(x) / σ: one pattern
+    ("cells" [n, P], g_n) and one eigenvalue ("cell_values" [n], ‖g_n‖²). Their sum is
+    J(x) = (1/σ²) J_fᵀ J_f, with eigenvectors "vectors" [n, P] and eigenvalues
+    "values" [n], largest first, from the SVD of the Jacobian J_f.
+    """
+    # the Jacobian of the responses with respect to the pixels [n, P], over σ
+    encoder.eval()
+    x = image.to(device)
+    jacobian = torch.autograd.functional.jacobian(lambda y: encoder(y)[0], x)
+    rows = jacobian.reshape(jacobian.shape[0], -1).double() / sigma
+
+    # each neuron's pattern and eigenvalue, then those of their total
+    _, singular, right = torch.linalg.svd(rows, full_matrices=False)
+    return {
+        "cells": rows.cpu().numpy(),
+        "cell_values": rows.pow(2).sum(dim=1).cpu().numpy(),
+        "vectors": right.cpu().numpy(),
+        "values": (singular**2).cpu().numpy(),
+    }
+
+
+def save_intermediate(results: object, path: Path) -> None:
+    """Store computed results (tensors, dicts, outputs of multigeom) in `path`."""
+    # the folder, then the file
+    path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(results, path)
+
+
+def load_intermediate(path: Path) -> object:
+    """Reload results stored by `save_intermediate`, on the CPU."""
+    return torch.load(path, map_location="cpu", weights_only=False)
+
+
 def compute_normalized(values: np.ndarray, reference: np.ndarray) -> np.ndarray:
     """
     `values` divided by the largest value of `reference`: a curve over its own maximum,
@@ -209,13 +254,14 @@ def draw_block(
     name: str,
     header: bool,
     outlines: dict,
+    label: str | None = None,
 ) -> plt.Axes:
     """
     The eigenvectors of one block, from row `top` of `grid` (the tiles start at its
     fourth column): one row per eigenvector, one column per noise level, with the
     noise levels above the columns if `header`, and on every tile the outline of the
-    region covered by each area of `outlines` (area → `compute_rf_outline`). Returns
-    the top-left tile.
+    region covered by each area of `outlines` (area → `compute_rf_outline`), and
+    `label` (the block's name if None) on the left. Returns the top-left tile.
     """
     # the eigenvectors [J, k, P] of the block: J noise levels, k eigenvectors each
     eigvecs = data[name]["eigenvectors"]
@@ -241,22 +287,82 @@ def draw_block(
     # the noise level tau = log t above each column, if asked
     if header:
         for level in range(n_levels):
-            label = f"{data['log_t'][level]:.1f}".replace("-", "−")
-            tiles[0][level].set_title(label, fontsize=7)
+            scale = f"{data['log_t'][level]:.1f}".replace("-", "−")
+            tiles[0][level].set_title(scale, fontsize=7)
 
-    # the name of the block, left of the names of its rows
-    top_left, bottom_left = tiles[0][0].get_position(), tiles[-1][0].get_position()
-    middle = (top_left.y1 + bottom_left.y0) / 2
+    # the label of the block, left of the names of its rows
+    draw_row_label(fig, tiles[0][0], tiles[-1][0], name if label is None else label)
+    return tiles[0][0]
+
+
+def draw_row_label(
+    fig: plt.Figure, top: plt.Axes, bottom: plt.Axes, label: str, dx: float = 0.028
+) -> None:
+    """
+    `label`, vertical, `dx` (figure units) left of the rows from the tile `top` to the
+    tile `bottom`.
+    """
+    top_box, bottom_box = top.get_position(), bottom.get_position()
+    middle = (top_box.y1 + bottom_box.y0) / 2
     fig.text(
-        top_left.x0 - 0.028,
+        top_box.x0 - dx,
         middle,
-        name,
+        label,
         fontsize=12,
         rotation=90,
         ha="center",
         va="center",
     )
-    return tiles[0][0]
+
+
+def draw_fisher_rows(
+    fig: plt.Figure, grid: GridSpec, top: int, fisher: dict, outlines: dict, label: str
+) -> None:
+    """
+    From row `top` of `grid` (the tiles start at its fourth column): a row with the
+    patterns of the neurons with the largest Fisher information, one per tile, largest
+    first ("per cell"), and below it, in one tile, their total summed over the cells
+    pixel by pixel: the diagonal of J(x) = Σ_n g_n g_nᵀ, Σ_n g_n², the Fisher
+    information at each pixel ("diag J(x)"); the outlines of `outlines` on every tile,
+    `label` on the left, and a title above. `fisher` is the output of
+    `compute_fisher_per_cell`.
+    """
+    # the neurons in order of their Fisher information, one tile each
+    order = np.argsort(fisher["cell_values"])[::-1]
+    n_tiles = min(grid.ncols - 3, len(order))
+    for column in range(n_tiles):
+        ax = fig.add_subplot(grid[top, 3 + column])
+        show_eigenvector(ax, fisher["cells"][order[column]])
+        draw_outlines(ax, outlines)
+        if column == 0:
+            ax.set_ylabel("per cell", fontsize=8, rotation=0, ha="right", va="center")
+            first = ax
+
+    # the total over the cells, pixel by pixel: the diagonal of J(x), Σ_n g_n², as a
+    # 64 x 64 image like the other tiles
+    total = (fisher["cells"] ** 2).sum(axis=0)
+    ax_total = fig.add_subplot(grid[top + 1, 3])
+    show_eigenvector(ax_total, total)
+    draw_outlines(ax_total, outlines)
+    ax_total.set_ylabel("diag J(x)", fontsize=8, rotation=0, ha="right", va="center")
+
+    # the label of the two rows, left of their names, and their title above
+    draw_row_label(fig, first, ax_total, label, dx=0.045)
+    draw_rows_title(fig, grid, top, "J(x) per cells")
+
+
+def draw_rows_title(fig: plt.Figure, grid: GridSpec, row: int, title: str) -> None:
+    """`title` above row `row` of `grid`, centred over its tiles (4th column on)."""
+    left = grid[row, 3].get_position(fig)
+    right = grid[row, grid.ncols - 1].get_position(fig)
+    fig.text(
+        (left.x0 + right.x1) / 2,
+        left.y1 + 0.003,
+        title,
+        fontsize=10,
+        ha="center",
+        va="bottom",
+    )
 
 
 def draw_outlines(ax: plt.Axes, outlines: dict) -> None:
@@ -323,6 +429,8 @@ def plot_per_scale(
     title: str,
     suptitle: str,
     outlines: dict,
+    fisher: dict | None = None,
+    eigenvalues: bool = True,
 ) -> tuple[plt.Figure, dict]:
     """
     The figure of one image: the image (A); for each block of `records` (an area, or
@@ -332,13 +440,19 @@ def plot_per_scale(
     in their own panel, if there are any, and those of the areas, each over its largest
     leading eigenvalue, in the last panel. On the tiles of an area, the outline of the
     region its neurons cover (`outlines`: area → `compute_rf_outline`); on those of the
-    stimulus features, the outlines of every area. Returns the figure and the data it
+    stimulus features, the outlines of every area. With `fisher` (area →
+    `compute_fisher_per_cell`), two more rows under each area: the Fisher information
+    of its neurons, one per tile, and the eigenvectors of their total. Without the
+    panels of eigenvalues if not `eigenvalues`. Returns the figure and the data it
     shows.
     """
     # the data drawn, its blocks, and the numbers of noise levels and eigenvectors
     data = get_plot_data(image, records)
     names = list(records)
     n_levels, n_eigvecs = data[names[0]]["eigenvalues"].shape
+    fisher = fisher or {}
+    for area, record in fisher.items():
+        data[area]["fisher"] = record
 
     # the panels of eigenvalues: the stimulus features as they are, then the areas,
     # normalized to compare where along tau each one sits
@@ -346,15 +460,23 @@ def plot_per_scale(
     panels = [(areas, "normalized", AREAS_LABEL)]
     if "stimulus" in names:
         panels.insert(0, (["stimulus"], "eigenvalues", STIMULUS_LABEL))
+    panels = panels if eigenvalues else []
 
     # the grid: the image on the left; for each block one row per eigenvector and one
-    # column per noise level, blocks apart by a gap; the eigenvalues at the bottom
-    block_rows = [EIGVEC_ROW] * n_eigvecs
-    heights = (block_rows + [BLOCK_GAP]) * (len(names) - 1) + block_rows
+    # column per noise level (and the Fisher rows of an area, if any), blocks apart by
+    # a gap; the eigenvalues at the bottom
+    heights, tops = [], []
+    for block, name in enumerate(names):
+        heights += [BLOCK_GAP] if block else []
+        tops.append(len(heights))
+        heights += [EIGVEC_ROW] * n_eigvecs
+        heights += [FISHER_GAP, EIGVEC_ROW, EIGVEC_ROW] if name in fisher else []
     first_value_row = len(heights) + 1
     heights = heights + [VALUES_GAP, VALUES_ROW] * len(panels)
     height = TWO_BLOCK_HEIGHT + BLOCK_HEIGHT * (len(names) - 2)
     height = height + VALUES_HEIGHT * (len(panels) - 1)
+    fisher_rows = FISHER_GAP + 2 * EIGVEC_ROW
+    height = height + len(fisher) * fisher_rows * INCHES_PER_ROW
     fig = plt.figure(figsize=(FIGURE_WIDTH, height), dpi=params["screen_dpi"])
     grid = fig.add_gridspec(
         len(heights),
@@ -373,13 +495,20 @@ def plot_per_scale(
     draw_outlines(ax_image, outlines)
 
     # B, C, ...: the eigenvectors of each block, the first with the noise levels above,
-    # with the outline of the area of the block, or of every area for the stimulus
+    # with the outline of the area of the block, or of every area for the stimulus;
+    # under an area, its Fisher rows if any
     first_tiles = []
     for block, name in enumerate(names):
         shown = outlines if name == "stimulus" else {name: outlines[name]}
-        top = block * (n_eigvecs + 1)
-        tile = draw_block(fig, grid, top, data, name, block == 0, shown)
+        label = f"{name}\nG(x)" if name in fisher else None
+        tile = draw_block(fig, grid, tops[block], data, name, block == 0, shown, label)
         first_tiles.append(tile)
+        if name in fisher:
+            draw_rows_title(fig, grid, tops[block], "G(x) per noise scale")
+        if name in fisher:
+            fisher_top = tops[block] + n_eigvecs + 1
+            fisher_label = f"{name}\nJ(x)"
+            draw_fisher_rows(fig, grid, fisher_top, fisher[name], shown, fisher_label)
 
     # the panels of eigenvalues, in the columns of the tiles
     value_axes = []

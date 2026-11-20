@@ -1,5 +1,5 @@
 """
-Check the helpers shared by notebooks 7 to 10 (sign alignment, Gaussian bound,
+Check the helpers shared by notebooks 7 to 11 (sign alignment, Gaussian bound,
 integration) on inputs whose answer is known.
 
 Unit tests of the helpers of notebooks 7 to 10 (figures/per_scale.py) on inputs whose
@@ -16,7 +16,7 @@ import torch
 from figures.per_scale import align_signs
 
 # the notebooks these tests cover (orders the tables of tests/README.md)
-pytestmark = pytest.mark.notebook(7, 8, 9, 10)
+pytestmark = pytest.mark.notebook(7, 8, 9, 10, 11)
 
 
 def test_align_signs_flips_only_signs_to_agree_with_coarser_levels():
@@ -129,3 +129,36 @@ def test_compute_bootstrap_resamples_the_same_images_for_every_area():
     # the band of the resamples, against numpy's percentiles
     expected = np.percentile(out["a"]["mean"], [2.5, 97.5], axis=0)
     np.testing.assert_allclose(compute_band(out["a"]["mean"]), expected)
+
+
+def test_compute_fisher_per_cell_on_a_linear_encoder():
+    """
+    Verify that `compute_fisher_per_cell` (`figures/per_scale.py`, notebook 11) gives,
+    for an encoder whose responses are a known linear map A of the image, each neuron's
+    pattern A_n / σ and Fisher information ‖A_n‖² / σ², and that their total J(x) has
+    the eigenvalues of AᵀA / σ², whose sum is that of the neurons'.
+    """
+    import numpy as np
+
+    from figures.per_scale import compute_fisher_per_cell
+
+    # a linear encoder of 3 neurons on 8 x 8 images, and the response noise
+    weight = torch.randn(3, 64, generator=torch.Generator().manual_seed(0))
+    encoder = torch.nn.Sequential(
+        torch.nn.Flatten(), torch.nn.Linear(64, 3, bias=False)
+    )
+    encoder[1].weight.data = weight
+    sigma = 0.5
+    out = compute_fisher_per_cell(
+        torch.zeros(1, 1, 8, 8), encoder, sigma, torch.device("cpu")
+    )
+
+    # each neuron: its pattern and its Fisher information
+    rows = weight.double().numpy() / sigma
+    np.testing.assert_allclose(out["cells"], rows, rtol=1e-6)
+    np.testing.assert_allclose(out["cell_values"], (rows**2).sum(axis=1), rtol=1e-6)
+
+    # their total: the eigenvalues of AᵀA / σ², which add up to the neurons' values
+    expected = np.sort(np.linalg.eigvalsh(rows @ rows.T))[::-1]
+    np.testing.assert_allclose(out["values"], expected, rtol=1e-6)
+    np.testing.assert_allclose(out["values"].sum(), out["cell_values"].sum())
