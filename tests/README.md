@@ -47,7 +47,7 @@ in `fixtures/`. A figure is compared pixel by pixel with its reference picture: 
 cannot pass by accident.
 
 <!-- regression-tests:start -->
-52 tests: 43 run on GitHub Actions (8 of them skipped while what they need is missing), 9 do not.
+54 tests: 43 run on GitHub Actions (8 of them skipped while what they need is missing), 11 do not.
 
 #### Notebooks 1, 2: [getting_started_notebooks](test_getting_started_notebooks.py)
 
@@ -192,6 +192,15 @@ Check that every figure and table script of `figures/` still writes its outputs.
 | Test | What it checks | GitHub Actions |
 |---|---|---|
 | `figure_scripts_write_outputs` | Verify that every figure and table script of `figures/` writes its files from a small synthetic `runs/` tree, and skips what is missing (the ON-OFF encoder). | no (slow) |
+
+#### [retina](test_retina.py)
+
+Check that multigeom, on Baptiste's retina models (open-retina), reproduces his figures of the Fisher information J(x) and the multi-scale Fisher information G(x) of the mosaics of W3 and tOFFalpha cells (tests/fixtures/retina/, described in its README).
+
+| Test | What it checks | GitHub Actions |
+|---|---|---|
+| `cell_figure_is_reproduced` | Verify that J(x) (test_retina_j_x.png) or G(x) (test_retina_g_x.png) of the mosaic of W3 cell 176-exp7, on the 6 test images of open-retina's run_lorenzi, reproduces the figure: each image tile (correlation ≥ 0.95); for J, each of the 5 leading eigenvector tiles matched among our 10 leading eigenvectors (\|correlation\| ≥ 0.6, median ≥ 0.95) and the shares of e1-e5 (within 1 percentage point); for G, the two leading eigenvectors rank by rank (\|correlation\| ≥ 0.9 and 0.8) and their shares of the 20 leading eigenvalues (within 5 and 3 points). | no (slow, gpu) |
+| `jx_gx_figure_is_reproduced` | Verify that test_retina_jx_gx.png (the bus, test image 2 of 6) is reproduced: the two leading eigenvectors of G(x) of W3 cell 176-exp7 and of tOFFalpha cell 17-exp5, rank by rank (\|correlation\| ≥ 0.9 and 0.8; shares of the 20 leading eigenvalues within 5 and 3 percentage points), and the receptive fields of J(x) of tOFFalpha cell 17-exp5: the peak of e2-e5 within 3 pixels of a peak of our 10 leading eigenvectors (shares of e1-e5 within 1 point). The figure is small (its tiles about 116 pixels for the 120 of the image), which blurs the few-pixel receptive fields of J(x) too much to compare them pixel by pixel; e1's is under the printed share. | no (slow, gpu) |
 <!-- regression-tests:end -->
 
 ## Unit tests
