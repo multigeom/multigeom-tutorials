@@ -24,6 +24,10 @@ ROOT = Path("data/02_intermediate")
 
 # the notebook that writes each folder
 PRODUCERS = {
+    "7_eigenvectors_of_G_per_scale": "7_eigenvectors_of_G_per_scale",
+    "8_stimulus_features_per_scale": "8_stimulus_features_per_scale",
+    "9_envelope_spectrum": "9_envelope_spectrum",
+    "10_coding_spectrum": "10_coding_spectrum",
     "11_stimulus_features_and_fisher": "11_stimulus_features_and_fisher_per_cell",
     "12_retina_eigenvectors_of_G_per_scale": "12_retina_eigenvectors_of_G_per_scale",
     "13_retina_stimulus_features_per_scale": "13_retina_stimulus_features_per_scale",

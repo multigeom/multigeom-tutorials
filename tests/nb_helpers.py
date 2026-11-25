@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -282,6 +283,17 @@ def run_all_code_cells(
 
 
 # ── inputs of the slow tests of notebooks 7 to 10 ──────────────────────────
+def use_fresh_results(namespace: dict) -> dict:
+    """
+    Make the notebook whose setup ran in `namespace` recompute its results into a new
+    temporary folder: the slow tests check the computation, so they must neither reload
+    the notebook's stored results nor overwrite them with their smaller runs.
+    """
+    namespace["PARAMS"]["recompute"] = True
+    namespace["PARAMS"]["intermediate_dir"] = tempfile.mkdtemp(prefix="nb_results_")
+    return namespace
+
+
 # the frog, the example image of notebooks 7 and 8
 FROG_IMAGE = "data/tiny-imagenet-200/train/n01644900/images/n01644900_0.JPEG"
 
@@ -416,6 +428,7 @@ def run_notebook7_frog() -> dict:
     # the setup cell, then the frog alone
     namespace = run_cells({}, SETUP7, notebook=NOTEBOOK7)
     namespace["PARAMS"]["test_images"] = []
+    use_fresh_results(namespace)
     return run_cells(namespace, COMPUTE7, notebook=NOTEBOOK7)
 
 
@@ -500,6 +513,7 @@ def run_notebook8_frog() -> dict:
     # the setup cell, then the frog alone
     namespace = run_cells({}, SETUP8, notebook=NOTEBOOK8)
     namespace["PARAMS"]["test_images"] = []
+    use_fresh_results(namespace)
     return run_cells(namespace, ENV8, notebook=NOTEBOOK8)
 
 
@@ -579,7 +593,8 @@ def run_notebook9() -> dict:
     runs/, TinyImageNet and the multigeom with compute_env_spectrum; about 2 min on a
     GPU).
     """
-    return run_cells({}, SETUP9, SPECTRUM9, GAUSSIAN9, notebook=NOTEBOOK9)
+    namespace = use_fresh_results(run_cells({}, SETUP9, notebook=NOTEBOOK9))
+    return run_cells(namespace, SPECTRUM9, GAUSSIAN9, notebook=NOTEBOOK9)
 
 
 # ── Notebook 10: the coding spectrum ───────────────────────────────────────
@@ -683,4 +698,5 @@ def run_notebook10() -> dict:
     (needs runs/, TinyImageNet and the multigeom with compute_coding_spectrum; about
     7 min on a GPU).
     """
-    return run_cells({}, SETUP10, SPECTRUM10, notebook=NOTEBOOK10)
+    namespace = use_fresh_results(run_cells({}, SETUP10, notebook=NOTEBOOK10))
+    return run_cells(namespace, SPECTRUM10, notebook=NOTEBOOK10)
